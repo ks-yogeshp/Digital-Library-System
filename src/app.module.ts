@@ -4,6 +4,11 @@ import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import databaseConfig from './config/database.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthorsModule } from './authors/authors.module';
+import { BooksModule } from './books/books.module';
+import { UsersModule } from './users/users.module';
+import { BorrowRecordModule } from './borrow-record/borrow-record.module';
+import { ReservationRequestModule } from './reservation-request/reservation-request.module';
 import enviromentValidation from './config/enviroment.validation';
 
 const ENV = process.env.NODE_ENV;
@@ -29,7 +34,12 @@ const ENV = process.env.NODE_ENV;
         autoLoadEntities: configService.get('database.autoLoadEntities'),
         synchronize: configService.get('database.synchronize'),
       })
-    })
+    }),
+    AuthorsModule,
+    BooksModule,
+    UsersModule,
+    BorrowRecordModule,
+    ReservationRequestModule
   ],
   controllers: [AppController],
   providers: [AppService],
