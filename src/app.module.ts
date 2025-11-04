@@ -9,7 +9,13 @@ import { BooksModule } from './books/books.module';
 import { UsersModule } from './users/users.module';
 import { BorrowRecordModule } from './borrow-record/borrow-record.module';
 import { ReservationRequestModule } from './reservation-request/reservation-request.module';
+import { QueryModule } from './common/query/query.module';
+import { MailService } from './mail/providers/mail.service';
+import { MailModule } from './mail/mail.module';
+import { SchedularModule } from './schedular/schedular.module';
 import enviromentValidation from './config/enviroment.validation';
+import { ScheduleModule } from '@nestjs/schedule';
+import mailConfig from './config/mail.config';
 
 const ENV = process.env.NODE_ENV;
 
@@ -18,7 +24,7 @@ const ENV = process.env.NODE_ENV;
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: !ENV ? '.env' : `.env.${ENV}.local`,
-      load: [databaseConfig],
+      load: [databaseConfig,mailConfig],
       validationSchema: enviromentValidation,
     }),
     TypeOrmModule.forRootAsync({
@@ -35,13 +41,17 @@ const ENV = process.env.NODE_ENV;
         synchronize: configService.get('database.synchronize'),
       })
     }),
+    ScheduleModule.forRoot(),
     AuthorsModule,
     BooksModule,
     UsersModule,
     BorrowRecordModule,
-    ReservationRequestModule
+    ReservationRequestModule,
+    QueryModule,
+    MailModule,
+    SchedularModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, MailService],
 })
 export class AppModule {}
