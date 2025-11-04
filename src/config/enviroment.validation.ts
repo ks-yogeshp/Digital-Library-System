@@ -9,4 +9,7 @@ export default Joi.object({
     DATABASE_PASSWORD: Joi.string().required(),
     DATABASE_HOST: Joi.string().required(),
     DATABASE_NAME: Joi.string().required(),
+    MAIL_HOST: Joi.string().required(),
+    SMTP_USERNAME: Joi.string().required(),
+    SMTP_PASSWORD: Joi.string().required(),
 })
