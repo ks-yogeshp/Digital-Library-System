@@ -1,6 +1,6 @@
 import { Author } from "src/authors/author.entity";
 import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { availibilityStatus } from "./enums/availibityStatus.enum";
+import { availabilityStatus } from "./enums/availibityStatus.enum";
 import { category } from "./enums/category.enum";
 import { BorrowRecord } from "src/borrow-record/borrow-record.entity";
 import { ReservationRequest } from "src/reservation-request/reservation-request.entity";
@@ -35,7 +35,7 @@ export class Book{
     })
     category: category[];
 
-    @ManyToMany(()=> Author, (author)=> author.books, {eager: true})
+    @ManyToMany(()=> Author, (author)=> author.books)
     @JoinTable()
     authors: Author[];
 
@@ -55,10 +55,10 @@ export class Book{
 
     @Column({
         type: 'enum',
-        enum: availibilityStatus,
-        default: availibilityStatus.AVAILABLE
+        enum: availabilityStatus,
+        default: availabilityStatus.AVAILABLE,
     })
-    availibilityStatus: availibilityStatus;
+    availabilityStatus: availabilityStatus;
 
     @OneToMany(()=> BorrowRecord, (borrowRecord)=> borrowRecord.book)
     borrowingHistory?: BorrowRecord[];

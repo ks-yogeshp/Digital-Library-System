@@ -1,7 +1,7 @@
 export enum category{
 
     FICTION='fiction',
-    NON_FICTION='non ficton',
+    NON_FICTION='non fiction',
     SCIENCE='science',
     TECHNOLOGY='technology',
     HISTORY='history',
