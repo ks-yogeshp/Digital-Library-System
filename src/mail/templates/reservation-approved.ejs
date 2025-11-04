@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title><%= subject %></title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      background-color: #ffffff;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #2c3e50;
+    }
+    p {
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .highlight {
+      color: #28a745;
+      font-weight: bold;
+    }
+    .button {
+      display: inline-block;
+      background-color: #007bff;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 5px;
+      text-decoration: none;
+      margin-top: 20px;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2><%= subject %></h2>
+    <p>Dear <%= userName %>,</p>
+
+    <p>
+      Great news! Your reservation for the book
+      <strong>"<%= bookTitle %>"</strong> has been <span class="highlight">approved</span>.
+    </p>
+
+    <p>
+      Please pick up your book by
+      <span class="highlight"><%= activeUntil.toDateString() %></span>
+      to ensure your reservation remains valid.
+    </p>
+
+    <a href="<%= libraryUrl %>" class="button">Go to Library Portal</a>
+
+    <p class="footer">
+      — Library Management System<br>
+      Please do not reply to this automated message.
+    </p>
+  </div>
+</body>
+</html>
