@@ -27,4 +27,9 @@ export class ReservationRequest {
     })
     requestStatus: requestStatus;
 
+    @Column({
+        type: 'timestamp', 
+        nullable: true 
+    })
+    active_until: Date;
 }
