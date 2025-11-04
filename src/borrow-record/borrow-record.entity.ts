@@ -9,37 +9,50 @@ export class BorrowRecord{
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(()=> Book, (book)=> book.borrowingHistory)
+    @ManyToOne(()=> Book, (book)=> book.borrowingHistory,)
     @JoinColumn({name: 'bookId'})
     book: Book;
 
-    @ManyToOne(()=> User, (user)=> user.borrowingHistory)
+    @ManyToOne(()=> User, (user)=> user.borrowingHistory,)
     @JoinColumn({name: 'userId'})
     user: User;
 
     @Column({
-        type: 'timestamp',
+        type: 'date',
         nullable: false,
     })
     borrowDate: Date;
 
     @Column({
-        type: 'timestamp',
+        type: 'date',
         nullable: false,
     })
     dueDate: Date;
 
     @Column({
-        type: 'timestamp',
-        nullable: false,
+        type: 'date',
+        nullable:true
     })
-    returnDate: Date;
+    returnDate?: Date;
 
     @Column({
         type:'integer',
         nullable:true,
     })
-    penaltiy?: number;
+    penalty?: number;
+
+    @Column({
+        type:'boolean',
+        nullable:true,
+    })
+    penaltyPaid?: boolean;
+
+    @Column({
+        type: 'integer',
+        nullable: false,
+        default: 0,
+    })
+    extensionCount: number;
 
     @Column({
         type: 'enum',
