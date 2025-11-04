@@ -1,6 +1,6 @@
 import { setSeederFactory } from 'typeorm-extension';
-import { Book } from './book.entity';
-import { category } from './enums/category.enum';
+import { Book } from '../../src/books/book.entity';
+import { category } from '../../src/books/enums/category.enum';
 import { faker } from '@faker-js/faker';
 
 export default setSeederFactory(Book, () => {

@@ -1,6 +1,6 @@
 import { setSeederFactory } from "typeorm-extension";
-import { Author } from "./author.entity";
 import { faker } from '@faker-js/faker';
+import { Author } from "src/authors/author.entity";
 
 export default setSeederFactory(Author, () => {
     const author = new Author();
