@@ -3,7 +3,7 @@ import { Book } from '../book.entity';
 import { PatchBookDto } from '../dtos/patch-book.dto';
 import { CreateBookDto } from '../dtos/creat-book.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { QueryDto } from 'src/common/query/dtos/query.dto';
 import { QueryProvider } from 'src/common/query/providers/query.provider';
 import { CheckoutProvider } from './checkout.provider';
@@ -34,21 +34,20 @@ private readonly logger = new Logger(BooksService.name);
 
     public async getAllBooks(queryDto: QueryDto){
         try {
-            return await this.queryProvider.query<Book,MyEntityMap>(
-                queryDto,
-                this.bookRepository,
-                {
-                    Book:['ISBN','name','authors','category','availabilityStatus'],
-                    Author:['name',]
+            return await this.queryProvider.query<Book,MyEntityMap>({
+                query:queryDto,
+                repository:this.bookRepository,
+                searchFieldMap:{
+                    Book:['ISBN','name','authors','category'],
+                    Author:['name']
                 },
-                {},
-                // {
-                //     yearOfPublication: MoreThan(2000)
-                // },
-                {
+                partial:{
+                    search:true
+                },
+                relations:{
                     authors:true
                 }
-            )
+            })
         } catch (error) {
             this.logger.error('Error fetching authors', error.stack);
             throw new InternalServerErrorException({
