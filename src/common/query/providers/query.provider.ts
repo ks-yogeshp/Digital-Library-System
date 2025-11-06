@@ -2,39 +2,40 @@ import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { Request } from 'express';
 import {
-  DataSource,
-  FindOptionsRelations,
+  And,
+  FindOperator,
+  FindOptionsOrder,
   FindOptionsWhere,
   ObjectLiteral,
   Raw,
-  Repository,
 } from 'typeorm';
-import { QueryDto } from '../dtos/query.dto';
 import { Query } from '../interfaces/query.interface';
-import { SearchFieldMap } from '../types/query.types';
-import { InjectDataSource } from '@nestjs/typeorm';
-
+import { SearchQueryProvider } from './search-query.provider';
+import { FilterQueryProvider } from './filter-query.provider';
+import { QueryOptionsDto } from './query.options.dto';
 
 @Injectable({ scope: Scope.REQUEST })
-export class QueryProvider{
+export class QueryProvider {
   constructor(
-
     @Inject(REQUEST)
     private readonly request: Request,
 
-    @InjectDataSource()
-    private readonly dataSource: DataSource ,
+    private readonly searchQueryProvider: SearchQueryProvider,
 
-  ) {}
+    private readonly filterQueryProvider: FilterQueryProvider,
+  ) { }
 
-
-  public async query<T extends ObjectLiteral,M extends Record<string,any>>(
-    query: QueryDto,
-    repository: Repository<T>,
-    searchFieldMap?: SearchFieldMap<M>,
-    where?: FindOptionsWhere<T> | FindOptionsWhere<T>[],
-    relations?: FindOptionsRelations<T>,
+  public async query<T extends ObjectLiteral, M extends Record<string, any>>(
+    options: QueryOptionsDto<T, M>,
   ) {
+    const {
+      query,
+      repository,
+      searchFieldMap,
+      where,
+      relations,
+      partial = { search: true, filter: true },
+    } = options;
 
     let whereArray: FindOptionsWhere<T>[] = [];
 
@@ -42,117 +43,139 @@ export class QueryProvider{
       whereArray = Array.isArray(where) ? [...where] : [where];
     }
 
-    if (query.search) {
+    let AndWhere: FindOptionsWhere<T> = {};
+    let OrWhere: FindOptionsWhere<T>[] = [];
 
-
-      const buildWhere = (
-        repo: Repository<any>,
-        search: string,
-        visitedEntities: Set<string> =new Set(),
-      ): FindOptionsWhere<any>[]=> {
-
-        const result:FindOptionsWhere<any>[] =[]
-        const entity = repo.metadata.targetName;
-
-        if(visitedEntities.has(entity)){
-          return [];
-        }
-
-        visitedEntities.add(entity);
-
-        const fields: string[]= 
-          searchFieldMap?.[entity as keyof M]?.map(f=>f.toString()) ?? 
-          repo.metadata.columns.map((c) => c.propertyName);
-
-        fields.forEach((field)=> {
-          
-          const column = repo.metadata.columns.find(c => c.propertyName === field);
-          if(!column){
-            return
-          }
-
-          result.push({
-                [field]: Raw((alias) => `${alias} ::text ILIKE :search`, { search: `%${search}%` }),
-              });
-        });
-
-          repo.metadata.relations.forEach((relation)=> {
-            if(!fields.includes(relation.propertyName)){
-              return
-            }
-
-            const relatedMeta = relation.inverseEntityMetadata;
-            const relatedRepo = this.dataSource.getRepository(relatedMeta.target)
-
-            const nestedWhere = buildWhere(
-              relatedRepo,
-              search,
-              visitedEntities
-            );
-
-            nestedWhere.forEach((w)=> result.push({[relation.propertyName]: w}))
-          })
-
-        
-
-
-        return result;
-
-      }
-
-      const searchWhere = buildWhere(repository,query.search);
-      const mergedWhere = searchWhere.map(s => ({
-        ...s,
-        ...where,
-      }));
-
-      whereArray = [...mergedWhere];
-
+    if (query.filters) {
+      AndWhere = this.filterQueryProvider.filterWhere(
+        repository,
+        query.filters,
+      );
     }
 
+    if (query.search) {
+      OrWhere = this.searchQueryProvider.searchWhere(
+        repository,
+        query.search,
+        partial.search,
+        searchFieldMap,
+      );
+    }
+
+    let finalWhere: FindOptionsWhere<T>[] = [];
+    if (OrWhere.length > 0) {
+      finalWhere = OrWhere.map((w) => {
+        const orKey = Object.keys(w)[0];
+        if (AndWhere.hasOwnProperty(orKey)) {
+          const nonConfiltingWhere = { ...AndWhere };
+          delete nonConfiltingWhere[orKey];
+          if (query.filters && query.search) {
+            type ColumnType = T[typeof orKey];
+            const filterOperator:
+              | FindOperator<ColumnType>
+              | ColumnType
+              | undefined = this.filterQueryProvider.singleWhere<T, ColumnType>(
+                query.filters[orKey],
+                orKey,
+                repository,
+              );
+            const searchOperator:
+              | FindOperator<ColumnType>
+              | ColumnType
+              | undefined = this.searchQueryProvider.singleWhere<T, ColumnType>(
+                query.search,
+                orKey,
+                repository,
+                partial.search,
+              );
+            if (filterOperator && searchOperator) {
+              if (AndWhere[orKey]?.['getSql'] && w['getSql']) {
+                const newparam = {
+                  search1: filterOperator['objectLiteralParameters']['search'],
+                  search2: searchOperator['objectLiteralParameters']['search'],
+                };
+                console.log(
+                  `::text ${filterOperator['getSql'].toString().split('::text')[1]}1 and  ::text ${searchOperator['getSql'].toString().split('::text')[1]}2`,
+                );
+                return {
+                  ...nonConfiltingWhere,
+                  [orKey]: Raw(
+                    (alias) =>
+                      `${alias} ::text ${filterOperator['getSql'].toString().split('::text')[1].replaceAll('`', '')}1 and ${alias} ::text ${searchOperator['getSql'].toString().split('::text')[1].replaceAll('`', '')}2`,
+                    { ...newparam },
+                  ),
+                };
+              } else {
+                return {
+                  ...nonConfiltingWhere,
+                  [orKey]: And(filterOperator, searchOperator),
+                } as FindOptionsWhere<T>;
+              }
+            }
+          } else return {};
+        }
+        return {
+          ...w,
+          ...AndWhere,
+        };
+      });
+    } else {
+      finalWhere = [AndWhere];
+    }
+
+    if (whereArray.length > 1) {
+      //change remaining
+      whereArray = whereArray.map((w) => ({ ...finalWhere, ...w }));
+    } else {
+      whereArray = finalWhere;
+    }
+
+    let order: FindOptionsOrder<T> = {};
+    if (query.sortBy) {
+      order = {
+        [query.sortBy]: query.sortOrder ?? 'ASC',
+      } as FindOptionsOrder<T>;
+    }
     const [result, totalItems] = await repository.findAndCount({
       where: whereArray.length ? whereArray : undefined,
+      order: order,
       skip: (query.page - 1) * query.limit,
       take: query.limit,
-      relations
+      relations,
     });
 
-    const baseUrl = this.request.protocol + '://' + this.request.headers.host + '/';
+    const baseUrl =
+      this.request.protocol + '://' + this.request.headers.host + '/';
     const newUrl = new URL(this.request.url, baseUrl);
-    const totalPages = Math.ceil(totalItems / query.limit);
-    const nextPage = query.page === totalPages ? query.page : query.page + 1;
-    const previousPage = query.page === 1 ? query.page : query.page - 1;
+    const totalPages = Math.max(Math.ceil(totalItems / query.limit), 1);
+    const currentPage = query.page < 1 ? 1 : query.page;
+    const nextPage = currentPage >= totalPages ? totalPages : currentPage + 1;
+    const previousPage = currentPage <= 1 ? 1 : currentPage - 1;
 
     const buildPageLink = (page: number) => {
-
       const params = new URLSearchParams(newUrl.search);
       params.set('page', page.toString());
 
       return `${newUrl.origin}${newUrl.pathname}?${params.toString()}`;
-
     };
-
 
     let response: Query<T> = {
       data: result,
       meta: {
         itemsPerPage: query.limit,
         totalItems: totalItems,
-        currentPage: query.page,
-        totalPage: Math.ceil(totalItems / query.limit),
+        currentPage: currentPage,
+        totalPage: totalPages,
       },
       links: {
         first: buildPageLink(1),
         last: buildPageLink(totalPages),
-        current: buildPageLink(query.page),
+        current: buildPageLink(currentPage),
         next: buildPageLink(nextPage),
         previous: buildPageLink(previousPage),
       },
     };
 
     return response;
-
   }
 }
-
-

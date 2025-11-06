@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { IsOptional, IsInt, IsPositive, Min, IsString, IsObject } from "class-validator";
+import { plainToInstance, Transform, Type } from "class-transformer";
+import { IsOptional, IsInt, IsPositive, Min, IsString, IsObject, ValidateNested, validateSync, validate } from "class-validator";
+import { FilterOperatorValueDto } from "./filter-operator-value.dto";
+import { BadRequestException } from "@nestjs/common";
 
 export class QueryDto {
     @ApiPropertyOptional({
@@ -48,15 +50,50 @@ export class QueryDto {
     sortOrder?: 'ASC' | 'DESC';
   
     @ApiPropertyOptional({
-      description:
-        'Filters object — can include any field to filter by (e.g., category, availabilityStatus)',
+      description: 'Filters object. (e.g., filters[category][eq]=FICTION)',
+      type: 'object',
       example: {
-        category: 'FICTION',
-        availabilityStatus: 'AVAILABLE',
-        yearOfPublication: 2023,
+        category: { eq: 'FICTION' },
+        yearOfPublication: { gt: 2020 },
       },
+      additionalProperties: true,
     })
     @IsOptional()
     @IsObject()
-    filters?: Record<string, any>;
+    @Transform(
+      ({ value }) => {
+        if (typeof value !== 'object' || value === null) {
+          return value;
+        }
+        const transformed = {};
+        try {
+          for (const key in value) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
+              const instance = plainToInstance(FilterOperatorValueDto, value[key]);
+  
+              const errors = validateSync(instance,{
+                forbidNonWhitelisted:true,
+                whitelist:true
+              })
+              if (errors.length > 0) {
+                const errorMessages = errors
+                  .map((e) => (e.constraints ? Object.values(e.constraints) : []))
+                  .flat()
+                  .join(', ');
+                
+                throw new Error(
+                  `Invalid filter for '${key}': ${errorMessages}`,
+                );
+              }
+              transformed[key] = instance;
+            }
+          }
+          return value;
+        } catch (e) {
+          throw new BadRequestException(e.message);
+        }
+      },
+      { toClassOnly: true },
+    )
+    filters?: Record<string, FilterOperatorValueDto>;
   }
