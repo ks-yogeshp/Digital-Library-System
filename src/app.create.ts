@@ -1,9 +1,10 @@
-import { tr } from "@faker-js/faker";
-import { INestApplication, SetMetadata, ValidationPipe } from "@nestjs/common";
+import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import * as qs from 'qs';
 
 export function appCreate(app: INestApplication):void{
 
+    
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,
