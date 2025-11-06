@@ -60,6 +60,10 @@ export class SchedularService {
             where:{
                 returnDate: IsNull(),
                 bookStatus: In[bookStatus.OVERDUE,bookStatus.BORROWED]
+            },
+            relations:{
+              user:true,
+              book:true
             }
         })
 
@@ -91,7 +95,11 @@ export class SchedularService {
           where: {
             returnDate: IsNull(),
             bookStatus: Not(bookStatus.RETURNED)
-        },
+          },
+          relations:{
+            user:true,
+            book:true
+          }
         });
         let count = 0;
         for (const record of records) {
@@ -103,7 +111,7 @@ export class SchedularService {
           if (daysDiff === 0 || daysDiff < 0) {
             setTimeout(async () => {
                 try {
-                  await this.mailService.sendRemainder(record, daysDiff);
+                  // await this.mailService.sendRemainder(record, daysDiff);
                   this.logger.log(`Reminder sent to ${record.user.email}`);
                 } catch (err) {
                   this.logger.error(`Failed to send reminder to ${record.user.email}`, err);
@@ -130,12 +138,11 @@ export class SchedularService {
         for (const reservation of expiredReservations) {
           this.logger.log(`Active period expired for reservation ${reservation.id}, checking next reservation...`);
         
-          // Mark current reservation as expired (optional)
           reservation.requestStatus = requestStatus.EXPIRE;
           await this.dataSource.getRepository(ReservationRequest).save(reservation);
 
-          // Trigger next reservation
           await this.reservationRequestService.nextReservation(reservation.book);
+
         }
     }
     
