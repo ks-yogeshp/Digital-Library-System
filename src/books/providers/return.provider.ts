@@ -60,19 +60,10 @@ export class ReturnProvider {
             record.bookStatus = bookStatus.RETURNED;
             record.penaltyPaid = true;
 
-            const reservationAvailable = await this.reservationRequestSerivce.nextReservation(record.book)
+            await this.reservationRequestSerivce.nextReservation(record.book);
 
-            await this.dataSource.transaction(async (manager) => {
-                if(!reservationAvailable){
-                    record.book.availabilityStatus = availabilityStatus.AVAILABLE;
-                    await manager.save(record.book);
-                }
-                await manager.save(record);
-              });
-
-            return record;
-
-            
+            return await this.borrowRecordRepository.save(record);
+          
         }
     }
 
