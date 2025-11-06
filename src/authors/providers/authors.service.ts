@@ -22,18 +22,16 @@ export class AuthorsService {
 
     public async getAllAuthors(queryDto: QueryDto){
         try {
-            // return await this.authorRepository.find({
-            //     relations:{
-            //         books:true
-            //     }
-            // });
-            return await this.queryProvider.query<Author, MyEntityMap>(
-                queryDto,
-                this.authorRepository,
-                {
+            return await this.queryProvider.query<Author, MyEntityMap>({
+                query:queryDto,
+                repository:this.authorRepository,
+                searchFieldMap:{
                     Author:['name','email']
+                },
+                partial:{
+                    search:false
                 }
-            );
+            });
         } catch (error) {
             this.logger.error('Error fetching authors', error.stack);
             throw new InternalServerErrorException({
