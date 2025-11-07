@@ -23,7 +23,20 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+This project is a Digital Library Management System built with NestJS and TypeScript, designed to efficiently manage digital library resources. It provides a scalable backend for handling books, users, and transactions while offering features like:
+
+- Book Management: Add, update, delete, and categorize digital books.
+
+- User Management: Register, authenticate, and manage library users.
+
+- Borrowing & Returns: Track borrowed books, due dates, and return status.
+
+- Database Integration: Supports migrations, seeding, and environment-based configuration.
+
+- Scheduled Tasks: Automatic notifications for overdue books using cron jobs, with optional manual execution.
+
+- Email Notifications: Send alerts and reminders to users using SMTP/Mailtrap.
+  
 
 ## Project setup
 
@@ -50,19 +63,20 @@ SMTP_USERNAME=your_mailtrap_username
 SMTP_PASSWORD=your_mailtrap_password
 ```
 ## Database Setup
-### Generate Migrations
 ```bash
+# Generate migrations
 NAME=first npm run mig-gen
-```
-### Run Migrations
-```bash
+
+# Run migrations
 npm run mig-run
-```
-### Seed Initial Data
-```bash
+
+# Seed initial data
 npm run seed:run
 ```
-
+## Run the Cron/Job manually
+```
+npm run schedule-run
+```
 
 ## Compile and run the project
 
