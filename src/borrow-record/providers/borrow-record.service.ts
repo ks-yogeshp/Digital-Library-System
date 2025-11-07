@@ -5,7 +5,6 @@ import { Repository } from 'typeorm';
 import { Parser } from 'json2csv';
 import { PenaltySummaryDto } from '../dtos/penalty-Summary.dto';
 import { BookActivitySummaryDto } from '../dtos/book-activity-summary.dto';
-import { category } from 'src/books/enums/category.enum';
 
 @Injectable()
 export class BorrowRecordService {
@@ -50,7 +49,6 @@ export class BorrowRecordService {
     }
 
     public async getBookActivitySummary(bookActivitySummary:BookActivitySummaryDto){
-        console.log(bookActivitySummary.categoryIds)
         const query =await this.borrowRepository.createQueryBuilder('record')
         .leftJoinAndSelect('record.book', 'book')
         .leftJoin('book.authors', 'author') // many-to-many relation
@@ -89,7 +87,6 @@ export class BorrowRecordService {
         if (bookActivitySummary.limit) {
           query.limit(bookActivitySummary.limit);   
         }
-        console.log(query.getSql(),query.getParameters())
         return query.getRawMany();
     }
 

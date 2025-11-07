@@ -9,11 +9,17 @@ export class BorrowRecord{
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(()=> Book, (book)=> book.borrowingHistory,)
+    @ManyToOne(()=> Book, (book)=> book.borrowingHistory,{
+        nullable:true,
+        onDelete:"SET NULL"
+    })
     @JoinColumn({name: 'bookId'})
     book: Book;
 
-    @ManyToOne(()=> User, (user)=> user.borrowingHistory,)
+    @ManyToOne(()=> User, (user)=> user.borrowingHistory,{
+        nullable:true,
+        onDelete:"SET NULL"
+    })
     @JoinColumn({name: 'userId'})
     user: User;
 
@@ -37,7 +43,7 @@ export class BorrowRecord{
 
     @Column({
         type:'integer',
-        nullable:true,
+        default:0,
     })
     penalty?: number;
 
