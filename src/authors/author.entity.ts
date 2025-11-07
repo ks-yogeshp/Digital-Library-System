@@ -29,7 +29,7 @@ export class Author{
     })
     country?: string;
 
-    @ManyToMany(()=> Book, (book)=> book.authors)
+    @ManyToMany(()=> Book, (book)=> book.authors,{onDelete:"CASCADE"})
     books?: Book[];
 
 }

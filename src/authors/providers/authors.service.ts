@@ -7,6 +7,7 @@ import { PatchAuthorDto } from '../dtos/patch-author.dto';
 import { QueryProvider } from 'src/common/query/providers/query.provider';
 import { QueryDto } from 'src/common/query/dtos/query.dto';
 import { MyEntityMap } from 'src/app.types';
+import { tr } from '@faker-js/faker';
 
 @Injectable()
 export class AuthorsService {
@@ -30,6 +31,9 @@ export class AuthorsService {
                 },
                 partial:{
                     search:false
+                },
+                relations:{
+                    books:true
                 }
             });
         } catch (error) {
@@ -43,7 +47,7 @@ export class AuthorsService {
 
     public async getAuthorById(id: number){
         try {
-            return await this.authorRepository.find({
+            return await this.authorRepository.findOne({
                 where:{
                     id:id
                 },
