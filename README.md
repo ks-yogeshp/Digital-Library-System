@@ -54,8 +54,6 @@ DATABASE_USERNAME=your_username
 DATABASE_PASSWORD=your_password
 DATABASE_HOST=your_host
 DATABASE_NAME=your_database_name
-DATABASE_SYNC=false
-DATABASE_AUTOLOAD=true
 
 # Mail
 MAIL_HOST=sandbox.smtp.mailtrap.io
