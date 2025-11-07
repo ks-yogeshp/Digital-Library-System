@@ -39,10 +39,14 @@ export class User{
     @Exclude()
     password: string;
 
-    @OneToMany(()=> BorrowRecord, (borrowRecord)=> borrowRecord.user)
+    @OneToMany(()=> BorrowRecord, (borrowRecord)=> borrowRecord.user,{
+        onDelete:"SET NULL"
+    })
     borrowingHistory?: BorrowRecord[];
 
-    @OneToMany(()=> ReservationRequest, (reservationRequest)=> reservationRequest.book)
+    @OneToMany(()=> ReservationRequest, (reservationRequest)=> reservationRequest.user,{
+        onDelete:"SET NULL"
+    })
     reservationHistory?: ReservationRequest[];
     
 

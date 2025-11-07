@@ -1,7 +1,8 @@
-import { Body, ClassSerializerInterceptor, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseInterceptors } from '@nestjs/common';
+import { Body, ClassSerializerInterceptor, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './providers/users.service';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { PatchUserDto } from './dtos/patch-user-dto';
+import { QueryDto } from 'src/common/query/dtos/query.dto';
 
 @Controller('users')
 export class UsersController {
@@ -14,8 +15,10 @@ export class UsersController {
     
         @Get()
         @UseInterceptors(ClassSerializerInterceptor)
-        public getAllUsers(){
-            return this.usersService.getAllUsers();
+        public getAllUsers(
+            @Query() queyDto: QueryDto
+        ){
+            return this.usersService.getAllUsers(queyDto);
         }
 
         @Get('{:id}')

@@ -4,6 +4,8 @@ import { CreateUserDto } from '../dtos/create-user.dto';
 import { PatchUserDto } from '../dtos/patch-user-dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { QueryProvider } from 'src/common/query/providers/query.provider';
+import { QueryDto } from 'src/common/query/dtos/query.dto';
 
 @Injectable()
 export class UsersService {
@@ -14,13 +16,17 @@ export class UsersService {
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
 
+        private readonly queryProvider: QueryProvider,
     ){}
 
-    public async getAllUsers(){
+    public async getAllUsers(queryDto:QueryDto){
         try {
-            return await this.userRepository.find({
+            return await this.queryProvider.query({
+                query:queryDto,
+                repository:this.userRepository,
                 relations:{
-                    borrowingHistory:true
+                    borrowingHistory:true,
+                    reservationHistory: true
                 }
             });
         } catch (error) {
@@ -34,12 +40,13 @@ export class UsersService {
 
     public async getUserById(id: number){
         try {
-            return await this.userRepository.find({
+            return await this.userRepository.findOne({
                 where:{
                     id: id
                 }
                 ,relations:{
-                    borrowingHistory:true
+                    borrowingHistory:true,
+                    reservationHistory:true
                 }
             });
         } catch (error) {
