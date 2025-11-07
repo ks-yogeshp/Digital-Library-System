@@ -35,7 +35,7 @@ export class Book{
     })
     category: category[];
 
-    @ManyToMany(()=> Author, (author)=> author.books)
+    @ManyToMany(()=> Author, (author)=> author.books,{onDelete:"CASCADE"})
     @JoinTable()
     authors: Author[];
 
@@ -60,9 +60,13 @@ export class Book{
     })
     availabilityStatus: availabilityStatus;
 
-    @OneToMany(()=> BorrowRecord, (borrowRecord)=> borrowRecord.book)
+    @OneToMany(()=> BorrowRecord, (borrowRecord)=> borrowRecord.book,{
+        onDelete:'SET NULL'
+    })
     borrowingHistory?: BorrowRecord[];
 
-    @OneToMany(()=> ReservationRequest, (reservationRequest)=> reservationRequest.book)
+    @OneToMany(()=> ReservationRequest, (reservationRequest)=> reservationRequest.book,{
+        onDelete:"SET NULL"
+    })
     reservationHistory?: ReservationRequest[];
 }

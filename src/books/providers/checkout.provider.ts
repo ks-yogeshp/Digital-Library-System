@@ -30,23 +30,23 @@ export class CheckoutProvider {
         let bookDetail = await this.bookRepository.findOneBy({id: checkoutDto.bookId});
         let userDetail = await this.userRepository.findOneBy({id: checkoutDto.userId})
         if(!bookDetail || !userDetail){
-            throw new BadRequestException();
+            throw new BadRequestException('Invalid book or user. Please check the IDs.');
         }
         if(bookDetail.availabilityStatus === availabilityStatus.UNAVAILABLE){
-            throw new BadRequestException();
+            throw new BadRequestException(`The book "${bookDetail.name}" is currently unavailable for borrowing.`);
         }else{
             bookDetail.availabilityStatus = availabilityStatus.UNAVAILABLE;
             bookDetail = await this.bookRepository.save(bookDetail);
-            // const now = new Date();
-            // now.setHours(0, 0, 0, 0);
-            // const dueDate = new Date(now);
-            // dueDate.setDate(dueDate.getDate() + checkoutDto.days);
-
             const now = new Date();
             now.setHours(0, 0, 0, 0);
-            now.setDate(now.getDate() - 14)
             const dueDate = new Date(now);
             dueDate.setDate(dueDate.getDate() + checkoutDto.days);
+
+            // const now = new Date();
+            // now.setHours(0, 0, 0, 0);
+            // now.setDate(now.getDate() - 14)
+            // const dueDate = new Date(now);
+            // dueDate.setDate(dueDate.getDate() + checkoutDto.days);
 
             let record = this.borrowRecordRepository.create({
                 book: bookDetail,

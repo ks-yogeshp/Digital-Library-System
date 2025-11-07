@@ -37,7 +37,7 @@ export class ExtendProvider {
         now.setHours(0,0,0,0);
         const dueDate = new Date(record.dueDate);
         const overdueDays = Math.floor((now.getTime()-dueDate.getTime())/(1000*60*60*24)) + 1; 
-        if(overdueDays <= -2 && record.extensionCount < 2){
+        if(overdueDays <= -2 && record.extensionCount < 3){
             dueDate.setDate(dueDate.getDate() + extendDto.days);
             record.extensionCount++;
             record.dueDate = dueDate;

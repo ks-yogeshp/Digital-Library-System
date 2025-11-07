@@ -59,13 +59,16 @@ private readonly logger = new Logger(BooksService.name);
 
     public async getBookById(id: number){
         try {
-            return await this.bookRepository.find({
+            return await this.bookRepository.findOne({
                 where:{
                     id: id
                 },
                 relations:{
                     authors:true,
                     borrowingHistory:{
+                        user:true
+                    },
+                    reservationHistory:{
                         user:true
                     }
                 },
@@ -113,8 +116,10 @@ private readonly logger = new Logger(BooksService.name);
                 throw new NotFoundException('Book does not exist with this Id');
             }
     
-            // existingBook.name = patchBookDto.name ?? existingBook.name;
-            // existingBook.country = patchBookDto.country ?? existingBook.country;
+            existingBook.name = patchBookDto.name ?? existingBook.name;
+            existingBook.yearOfPublication = patchBookDto.yearOfPublication ?? existingBook.yearOfPublication;
+            existingBook.category = patchBookDto.category ?? existingBook.category;
+            existingBook.version = patchBookDto.version ?? existingBook.version;
     
             return await this.bookRepository.save(existingBook);
     
