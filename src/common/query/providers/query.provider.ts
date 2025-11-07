@@ -12,7 +12,7 @@ import {
 import { Query } from '../interfaces/query.interface';
 import { SearchQueryProvider } from './search-query.provider';
 import { FilterQueryProvider } from './filter-query.provider';
-import { QueryOptionsDto } from './query.options.dto';
+import { QueryOptionsDto } from '../dtos/query.options.dto';
 
 @Injectable({ scope: Scope.REQUEST })
 export class QueryProvider {

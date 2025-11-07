@@ -81,12 +81,12 @@ export class FilterOperatorValueDto {
     @Type(() => String)
     between?: string[];
   
-    @ApiPropertyOptional({
-      description: 'Array contains value (for PostgreSQL arrays)',
-      example: 'ADMIN',
-    })
-    @IsOptional()
-    @IsString()
-    contains?: string;
+    // @ApiPropertyOptional({
+    //   description: 'Array contains value (for PostgreSQL arrays)',
+    //   example: 'ADMIN',
+    // })
+    // @IsOptional()
+    // @IsString()
+    // contains?: string;
   }
   
