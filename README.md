@@ -28,8 +28,41 @@
 ## Project setup
 
 ```bash
-$ npm install
+npm install
 ```
+
+## Configure Environment Variables
+Create a .env file in the root of your project with your database and mail settings:
+
+```bash
+# Database
+DATABASE_PORT=your_port
+DATABASE_USERNAME=your_username
+DATABASE_PASSWORD=your_password
+DATABASE_HOST=your_host
+DATABASE_NAME=your_database_name
+DATABASE_SYNC=false
+DATABASE_AUTOLOAD=true
+
+# Mail
+MAIL_HOST=sandbox.smtp.mailtrap.io
+SMTP_USERNAME=your_mailtrap_username
+SMTP_PASSWORD=your_mailtrap_password
+```
+## Database Setup
+### Generate Migrations
+```bash
+NAME=first npm run mig-gen
+```
+### Run Migrations
+```bash
+npm run mig-run
+```
+### Seed Initial Data
+```bash
+npm run seed:run
+```
+
 
 ## Compile and run the project
 
