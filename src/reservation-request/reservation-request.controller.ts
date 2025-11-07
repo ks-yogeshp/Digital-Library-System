@@ -13,14 +13,14 @@ export class ReservationRequestController {
 
     ){}
 
-    @Post()
+    @Post('reserve')
     public createReservationResquest(
         @Body() createReservationRequestDto: CreateReservationRequestDto,
     ){
         return this.reservationRequestService.createReservation(createReservationRequestDto);
     }   
 
-    @Post('reserve')
+    @Post('checkout')
     public reserveBook( 
         @Body() checkoutReservationRequestDto: CheckoutReservationRequestDto 
     ){

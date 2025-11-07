@@ -9,11 +9,17 @@ export class ReservationRequest {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(()=> Book, (book)=> book.reservationHistory)
+    @ManyToOne(()=> Book, (book)=> book.reservationHistory,{
+        nullable:true,
+        onDelete:"SET NULL"
+    })
     @JoinColumn({name: 'bookId'})
     book: Book;
 
-    @ManyToOne(()=> User, (user)=> user.reservationHistory)
+    @ManyToOne(()=> User, (user)=> user.reservationHistory,{
+        nullable:true,
+        onDelete:"SET NULL"
+    })
     @JoinColumn({name: 'userId'})
     user: User;
 
