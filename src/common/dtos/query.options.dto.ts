@@ -1,6 +1,10 @@
 import { FindOptionsRelations, FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
+
 import { QueryDto } from '../dtos/query.dto';
-import { SearchFieldMap } from '../types/query.types';
+
+type SearchFieldMap<M extends Record<string, any>> = {
+  [K in keyof M]?: Array<keyof M[K]>;
+};
 
 export class QueryOptionsDto<T extends ObjectLiteral, M extends Record<string, any> = Record<string, any>> {
   /**
