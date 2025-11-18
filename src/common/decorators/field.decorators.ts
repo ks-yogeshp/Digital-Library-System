@@ -45,6 +45,11 @@ interface IObjectFieldOptions {
   validation?: boolean;
 }
 
+interface IFieldOptions {
+  swagger?: boolean;
+  validation?: boolean;
+}
+
 type ApiOptions = Omit<ApiPropertyOptions, 'type'> & { required?: boolean };
 
 export function StringField(
@@ -415,4 +420,28 @@ export function getVariableName<TResult>(getVar: () => TResult): string {
   const fullMemberName = m[1];
   const memberParts = fullMemberName.split('.');
   return memberParts[memberParts.length - 1];
+}
+export function FileField(
+  options: Omit<ApiOptions, 'type' | 'format' | 'required' | 'enum' | 'enumName'> &
+    IFieldOptions & { required?: boolean } = {}
+): PropertyDecorator {
+  const decorators: PropertyDecorator[] = [];
+  const { swagger, required, ...rest } = options;
+
+  if (swagger !== false) {
+    decorators.push(
+      ApiProperty({
+        type: String,
+        format: 'binary',
+        required,
+        ...rest,
+      } as ApiPropertyOptions)
+    );
+  }
+
+  return applyDecorators(...decorators);
+}
+
+export function FileFieldOptional(options: Omit<ApiOptions, 'type'> = {}): PropertyDecorator {
+  return applyDecorators(IsOptional(), FileField({ ...options, required: false }));
 }

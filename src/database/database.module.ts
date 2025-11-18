@@ -8,6 +8,7 @@ import { CUSTOM_REPOSITORY_KEY } from './decorators/repository.decorator';
 import { AuthorRepository } from './repositories/author.repository';
 import { BookRepository } from './repositories/book.repository';
 import { BorrowRecordRepository } from './repositories/borrow-record.repository';
+import { ImageMetadataRepository } from './repositories/image-metadata.repository';
 import { ReservationRequestRepository } from './repositories/reservation-request.repository';
 import { UserRepository } from './repositories/user.repository';
 
@@ -42,6 +43,7 @@ export class DatabaseModule {
       UserRepository,
       BorrowRecordRepository,
       ReservationRequestRepository,
+      ImageMetadataRepository,
     ]);
 
     return {
