@@ -37,7 +37,7 @@ export class Book {
   })
   category: Category[];
 
-  @ManyToMany(() => Author, (author) => author.books, { eager: false, onDelete: 'CASCADE' })
+  @ManyToMany(() => Author, (author) => author.books, { eager: false, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   @JoinTable()
   authors?: Promise<Author[]>;
 

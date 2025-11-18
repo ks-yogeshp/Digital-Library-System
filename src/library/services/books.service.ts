@@ -147,7 +147,13 @@ export class BooksService {
           .createQueryBuilder()
           .relation(Book, 'authors')
           .of(existingBook)
-          .set(authors);
+          .remove(await existingBook.authors);
+        await manager
+          .getRepository(Book)
+          .createQueryBuilder()
+          .relation(Book, 'authors')
+          .of(existingBook)
+          .add(authors);
       }
     });
 

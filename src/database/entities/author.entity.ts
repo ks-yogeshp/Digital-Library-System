@@ -29,6 +29,6 @@ export class Author {
   })
   country?: string;
 
-  @ManyToMany(() => Book, (book) => book.authors, { eager: false, onDelete: 'CASCADE' })
+  @ManyToMany(() => Book, (book) => book.authors, { eager: false, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   books?: Promise<Book[]>;
 }
