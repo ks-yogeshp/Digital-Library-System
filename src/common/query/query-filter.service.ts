@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { FilterOperatorValueDto } from '../dtos/filter-operator-value.dto';
 import {
+  Any,
   Between,
   FindOperator,
   FindOptionsWhere,
@@ -18,8 +18,10 @@ import {
   Repository,
 } from 'typeorm';
 
+import { FilterOperatorValueDto } from '../dtos/filter-operator-value.dto';
+
 @Injectable()
-export class FilterQueryProvider {
+export class QueryFilterService {
   private parseValue(value: any): any {
     if (typeof value !== 'string') return value;
 
@@ -27,7 +29,7 @@ export class FilterQueryProvider {
     if (value === 'false') return false;
 
     const num = parseInt(value);
-    console.log("num")
+    // console.log("num")
     if (!isNaN(num) && isFinite(num)) return num;
 
     if (Array.isArray(value)) {
@@ -35,10 +37,7 @@ export class FilterQueryProvider {
     }
     return value;
   }
-  private operatorMap<V>(
-    key: string,
-    value: any,
-  ): FindOperator<V> | V | undefined {
+  private operatorMap<V>(key: string, value: any): FindOperator<V> | V | undefined {
     const search = this.parseValue(value);
     switch (key) {
       case 'eq':
@@ -60,13 +59,15 @@ export class FilterQueryProvider {
       case 'isNull':
         return search === true ? IsNull() : (Not(IsNull()) as FindOperator<V>);
       case 'in':
-        return In(Array.isArray(search) ? search : [search]) as FindOperator<V>;
+        return In(Array.isArray(search) ? search : [...search.split(',')]) as FindOperator<V>;
+      case 'any':
+        return Any(Array.isArray(search) ? search : [...search.split(',')]) as FindOperator<V>;
       case 'between':
         if (Array.isArray(search) && search.length === 2) {
           return Between(search[0], search[1]) as FindOperator<V>;
         }
         throw new Error(
-          `Invalid value for 'between' operator. Expected an array of two elements, got: ${JSON.stringify(search)}`,
+          `Invalid value for 'between' operator. Expected an array of two elements, got: ${JSON.stringify(search)}`
         );
       // case 'nin':
       //   return Not(In(Array.isArray(search) ? search : [search])) as FindOperator<V>;
@@ -78,16 +79,13 @@ export class FilterQueryProvider {
 
   public filterWhere = <T extends ObjectLiteral>(
     repo: Repository<T>,
-    filters: Record<string, FilterOperatorValueDto>,
+    filters: Record<string, FilterOperatorValueDto>
   ): FindOptionsWhere<T> => {
     const result: FindOptionsWhere<T> = {};
 
-    const fields = Object.keys(filters);
     for (const key in filters) {
       if (Object.prototype.hasOwnProperty.call(filters, key)) {
-        const column = repo.metadata.columns.find(
-          (c) => c.propertyName === key,
-        );
+        const column = repo.metadata.columns.find((c) => c.propertyName === key);
         if (!column) {
           continue;
         }
@@ -102,9 +100,14 @@ export class FilterQueryProvider {
         if (typeOrmOperator !== undefined) {
           // console.log(key)
           if (column.enum && column.isArray) {
+            // result[key as keyof T] = Raw(
+            //   (alias) => `${alias} ::text ILIKE :search`,
+            //   { search: `%${value}%` },
+            // ) as any;
+            // result[key as keyof T] = typeOrmOperator as any;
             result[key as keyof T] = Raw(
-              (alias) => `${alias} ::text ILIKE :search`,
-              { search: `%${value}%` },
+              (alias) => `${alias} && :values`, // array overlap operator
+              { values: Array.isArray(value) ? value : [...value.split(',')] }
             ) as any;
           } else {
             result[key as keyof T] = typeOrmOperator as any;
@@ -120,7 +123,7 @@ export class FilterQueryProvider {
   public singleWhere = <T extends ObjectLiteral, V>(
     filter: FilterOperatorValueDto,
     key: string,
-    repo: Repository<T>,
+    repo: Repository<T>
   ): FindOperator<V> | V | undefined => {
     const [[operator, value]] = Object.entries(filter);
     const column = repo.metadata.columns.find((c) => c.propertyName === key);
@@ -128,9 +131,13 @@ export class FilterQueryProvider {
       return;
     }
     if (column.enum && column.isArray) {
-      return Raw((alias) => `${alias} ::text ILIKE :search`, {
-        search: `%${value}%`,
-      });
+      // return Raw((alias) => `${alias} ::text ILIKE :search`, {
+      //   search: `%${value}%`,
+      // });
+      return Raw(
+        (alias) => `${alias} && :values`, // array overlap operator
+        { values: Array.isArray(value) ? value : [...value.split(',')] }
+      ) as any;
     } else {
       return this.operatorMap<V>(operator, value);
     }
