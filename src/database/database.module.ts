@@ -7,7 +7,7 @@ import { CONFIG } from 'src/config';
 import { CUSTOM_REPOSITORY_KEY } from './decorators/repository.decorator';
 import { AuthorRepository } from './repositories/author.repository';
 import { BookRepository } from './repositories/book.repository';
-import { BorrowRecordRepository } from './repositories/borrow-record';
+import { BorrowRecordRepository } from './repositories/borrow-record.repository';
 import { ReservationRequestRepository } from './repositories/reservation-request.repository';
 import { UserRepository } from './repositories/user.repository';
 
