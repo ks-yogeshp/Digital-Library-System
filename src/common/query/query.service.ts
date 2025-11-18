@@ -57,8 +57,6 @@ export class QueryService {
         const hasAndKey = Object.prototype.hasOwnProperty.call(AndWhere, orKey);
 
         if (!hasAndKey) {
-          // simple merge when no conflict
-          console.log('1');
           return { ...w, ...AndWhere };
         }
 
@@ -92,14 +90,11 @@ export class QueryService {
         // Both operators exist → handle Raw or And cases
         const hasSqlA = AndWhere[orKey]?.['getSql'];
         const hasSqlB = w[orKey]?.['getSql'];
-        console.log(hasSqlA, hasSqlB, filterOperator['objectLiteralParameters']);
         if (hasSqlA && hasSqlB) {
           const newParams = {
             search1: searchOperator['objectLiteralParameters']?.['search'],
             search2: filterOperator['objectLiteralParameters']?.['values'],
           };
-
-          console.log(newParams);
 
           const afterAnd: FindOptionsWhere<T> = {};
 
@@ -135,13 +130,6 @@ export class QueryService {
     } else {
       whereArray = finalWhere;
     }
-    // console.log(whereArray);
-    // console.log(
-    //   whereArray.map((w) =>
-    //     Object.values(w).map((t) => (t['getSql'] ? t['getSql'].toString() : t['type'] ? t['type'] : t))
-    //   )
-    // );
-    // console.log(whereArray.map((w)=> Object.values(w).map((t)=> t['getSql']? Object.values(t['objectLiteralParameters']) : t['type'] ? t['type']: t)))
 
     let order: FindOptionsOrder<T> = {};
     if (query.sortBy) {

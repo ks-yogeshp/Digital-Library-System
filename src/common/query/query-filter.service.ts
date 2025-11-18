@@ -29,7 +29,6 @@ export class QueryFilterService {
     if (value === 'false') return false;
 
     const num = parseInt(value);
-    // console.log("num")
     if (!isNaN(num) && isFinite(num)) return num;
 
     if (Array.isArray(value)) {
@@ -95,10 +94,7 @@ export class QueryFilterService {
         type ColumnType = T[typeof key];
         const typeOrmOperator = this.operatorMap<ColumnType>(operator, value);
 
-        // console.log(operator+"  :  "+value)
-
         if (typeOrmOperator !== undefined) {
-          // console.log(key)
           if (column.enum && column.isArray) {
             // result[key as keyof T] = Raw(
             //   (alias) => `${alias} ::text ILIKE :search`,
@@ -115,7 +111,6 @@ export class QueryFilterService {
         }
       }
     }
-    // console.log(result)
 
     return result;
   };

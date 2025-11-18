@@ -53,7 +53,6 @@ export class BorrowRecordService {
   }
 
   public async getBookActivitySummary(bookActivitySummary: BookActivitySummaryDto) {
-    console.log('bookActivitySummary', bookActivitySummary);
     const query = this.borrowRepository
       .createQueryBuilder('record')
       .leftJoinAndSelect('record.book', 'book')

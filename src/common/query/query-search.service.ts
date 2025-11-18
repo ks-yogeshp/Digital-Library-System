@@ -59,12 +59,6 @@ export class QuerySearchService {
           }),
         });
       }
-      // }else{
-      //   // console.log(field)
-      //   result.push({
-      //     [field]: ILike(Equal(para))
-      //   })
-      // }
     });
 
     repo.metadata.relations.forEach((relation) => {

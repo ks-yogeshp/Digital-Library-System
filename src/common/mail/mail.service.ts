@@ -28,9 +28,9 @@ export class MailService {
           libraryUrl: `${CONFIG.APP_URL}`,
         },
       });
-      console.log(`Reminder sent to ${user.email}`);
+      Logger.log(`Reminder sent to ${user.email}`);
     } catch (error) {
-      console.error(`Failed to send reminder to ${user.email}`, error);
+      Logger.error(`Failed to send reminder to ${user.email}`, error);
     }
   }
 
