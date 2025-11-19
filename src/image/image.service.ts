@@ -20,19 +20,29 @@ export class ImageService {
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new Error('Invalid file type. Only JPEG, PNG, and GIF are allowed.');
     }
-    const imageMetadata = new ImageMetadata();
+    let imageMetadata: ImageMetadata = new ImageMetadata();
     if (type === 'author') {
       const author = await this.authorRepository.findOne({ where: { id } });
       if (!author) {
         throw new NotFoundException('Author not found');
       }
-      imageMetadata.authorId = author.id;
+      const existing = await this.imageMetadataRepository.findOne({ where: { author: { id } } });
+      if(existing){
+        imageMetadata = existing;
+      }else{
+        imageMetadata.authorId = author.id;
+      }
     } else if (type === 'book') {
       const book = await this.bookRepository.findOne({ where: { id } });
       if (!book) {
         throw new NotFoundException('Book not found');
       }
-      imageMetadata.bookId = book.id;
+      const existing = await this.imageMetadataRepository.findOne({ where: { book: { id } } });
+      if(existing){
+        imageMetadata = existing;
+      }else{
+        imageMetadata.bookId = book.id;
+      }
     } else {
       throw new Error('Invalid type. Must be either "author" or "book".');
     }
