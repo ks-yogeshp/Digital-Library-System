@@ -1,12 +1,10 @@
-import { Column, Entity, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ManyToMany } from 'typeorm';
 
 import { Book } from 'src/database/entities/book.entity';
+import { MetadataSoft } from './metadata-soft.entity';
 
 @Entity()
-export class Author {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class Author extends MetadataSoft {
   @Column({
     type: 'varchar',
     length: 96,

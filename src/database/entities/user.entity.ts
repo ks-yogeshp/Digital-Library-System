@@ -1,16 +1,15 @@
 import { Exclude } from 'class-transformer';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany } from 'typeorm';
 
 import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
+import { AbstractSoftEntity } from './abstract-soft.entity';
+import { Role } from './enums/role.enum';
 import { ReservationRequest } from './reservation-request.entity';
 
 export type IUserWithPenalty = User & { totalPenalty: number };
 
 @Entity()
-export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class User extends AbstractSoftEntity {
   @Column({
     type: 'varchar',
     length: 96,
@@ -36,10 +35,24 @@ export class User {
   @Column({
     type: 'varchar',
     length: 96,
-    nullable: false,
+    nullable: true,
   })
   @Exclude()
-  password: string;
+  password?: string;
+
+  @Column({
+    type: 'enum',
+    enum: Role,
+    default: Role.STUDENT,
+  })
+  role?: Role;
+
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  @Exclude()
+  googleId?: string;
 
   @OneToMany(() => BorrowRecord, (borrowRecord) => borrowRecord.user, {
     eager: false,

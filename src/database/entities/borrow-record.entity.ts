@@ -1,14 +1,12 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { Book } from 'src/database/entities/book.entity';
 import { User } from 'src/database/entities/user.entity';
+import { AbstractSoftEntity } from './abstract-soft.entity';
 import { BookStatus } from './enums/book-status.enum';
 
 @Entity()
-export class BorrowRecord {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class BorrowRecord extends AbstractSoftEntity {
   @Column()
   bookId: number;
 
