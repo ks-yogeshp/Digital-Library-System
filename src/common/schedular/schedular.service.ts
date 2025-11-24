@@ -67,6 +67,7 @@ export class SchedularService {
       const book = await record.book;
       const user = await record.user;
       if (!book) continue;
+      if (!user) continue;
       if (dueDate <= today) {
         const overdueDays = differenceInCalendarDays(today, dueDate);
         if (overdueDays > 0) {
@@ -96,6 +97,9 @@ export class SchedularService {
     let count = 0;
     for (const record of records) {
       const user = await record.user;
+      const book = await record.book;
+      if (!user) continue;
+      if (!book) continue;
       const dueDate = new Date(record.dueDate);
       const daysDiff = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -126,6 +130,9 @@ export class SchedularService {
 
     for (const reservation of expiredReservations) {
       const book = await reservation.book;
+      const user = await reservation.user;
+      if (!book) continue;
+      if (!user) continue;
       Logger.log(`Active period expired for reservation ${reservation.id}, checking next reservation...`);
 
       reservation.requestStatus = RequestStatus.EXPIRE;
