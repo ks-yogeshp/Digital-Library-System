@@ -1,16 +1,23 @@
-import { Body, Controller, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Body, Controller, Query } from '@nestjs/common';
 
+import type { IActiveUser } from 'src/auth/interfaces/active-user.interface';
+import { ActiveUser } from 'src/auth/decorators/active-user.decorator';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 import { PageDto } from 'src/common/dtos/page.dto';
 import { QueryDto } from 'src/common/dtos/query.dto';
-import { DeleteRoute, GetRoute, PostRoute, PutRoute } from './../common/decorators/route.decorators';
+import { Role } from 'src/database/entities/enums/role.enum';
+import { DeleteRoute, GetRoute, PutRoute } from './../common/decorators/route.decorators';
 import { SuccessDto } from './dto/success.dto';
-import { CreateUserDto, DetailedUserDto, UpdateUserDto, UserDto } from './dto/user.dto';
+import { DetailedUserDto, UpdateUserDto, UserDto } from './dto/user.dto';
 import { UsersService } from './services/users.service';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Auth({
+    roles: [Role.ADMIN, Role.MANAGER],
+  })
   @GetRoute('', {
     summary: 'Get all users',
     description: 'Retrieve a list of all users with optional pagination and filtering.',
@@ -21,48 +28,54 @@ export class UsersController {
       isArray: true,
     },
   })
-  public async getAllUsers(@Query() queryDto: QueryDto) {
+  public async getAllUsers(@Query() queryDto: QueryDto, @ActiveUser() activeUser: IActiveUser) {
     const users = await this.usersService.getAllUsers(queryDto);
-    const result = users.result.map((user) => new UserDto(user));
+    const result = users.result.map((user) => new UserDto(user, activeUser.role));
     return new PageDto(result, queryDto.page, queryDto.limit, users.totalItems, users.newUrl);
   }
 
-  @GetRoute('{:id}', {
+  @Auth({
+    roles: [Role.STUDENT],
+  })
+  @GetRoute('profile', {
     summary: 'Get user by ID',
     description: 'Retrieve detailed information about a specific user by their ID.',
     Ok: DetailedUserDto,
   })
-  public async getUserById(@Param('id', ParseIntPipe) id: number) {
-    const user = await this.usersService.getUserById(id);
+  public async getUserById(@ActiveUser() activeUser: IActiveUser) {
+    const user = await this.usersService.getUserById(activeUser.sub);
     return DetailedUserDto.toDto(user);
   }
 
-  @PostRoute('', {
-    summary: 'Create a new user',
-    description: 'Add a new user to the system.',
-    Created: DetailedUserDto,
-  })
-  public async createUser(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.createUser(createUserDto);
-    return DetailedUserDto.toDto(user);
-  }
+  // @Auth()
+  // @PostRoute('', {
+  //   summary: 'Create a new user',
+  //   description: 'Add a new user to the system.',
+  //   Created: DetailedUserDto,
+  // })
+  // public async createUser(@Body() createUserDto: CreateUserDto) {
+  //   const user = await this.usersService.createUser(createUserDto);
+  //   return DetailedUserDto.toDto(user);
+  // }
 
-  @PutRoute('{:id}', {
+  @Auth()
+  @PutRoute('update', {
     summary: 'Update user details',
     description: 'Update the information of an existing user by their ID.',
     Ok: DetailedUserDto,
   })
-  public async updateUser(@Param('id', ParseIntPipe) id: number, @Body() upadateUserDto: UpdateUserDto) {
-    const user = await this.usersService.updateUser(id, upadateUserDto);
+  public async updateUser(@ActiveUser() activeUser: IActiveUser, @Body() upadateUserDto: UpdateUserDto) {
+    const user = await this.usersService.updateUser(activeUser.sub, upadateUserDto);
     return DetailedUserDto.toDto(user);
   }
 
-  @DeleteRoute('{:id}', {
+  @Auth()
+  @DeleteRoute('delete', {
     summary: 'Delete a user',
     description: 'Remove a user from the system by their ID.',
     Ok: SuccessDto,
   })
-  public deleteUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.deleteUser(id);
+  public deleteUser(@ActiveUser() activeUser: IActiveUser) {
+    return this.usersService.deleteUser(activeUser.sub);
   }
 }
