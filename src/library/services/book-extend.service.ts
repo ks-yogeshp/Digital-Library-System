@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { add, differenceInCalendarDays, startOfDay } from 'date-fns';
 
+import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { BookStatus } from 'src/database/entities/enums/book-status.enum';
 import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
 import { ExtendDto } from '../dto/extend.dto';
@@ -9,14 +10,14 @@ import { ExtendDto } from '../dto/extend.dto';
 export class BookExtendService {
   constructor(private readonly borrowRecordRepository: BorrowRecordRepository) {}
 
-  public async extendBook(id: number, extendDto: ExtendDto) {
+  public async extendBook(id: number, user: IActiveUser, extendDto: ExtendDto) {
     const record = await this.borrowRecordRepository.findOne({
       where: {
         book: {
           id: id,
         },
         user: {
-          id: extendDto.userId,
+          id: user.sub,
         },
         bookStatus: BookStatus.BORROWED,
       },

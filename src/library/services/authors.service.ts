@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { MyEntityMap } from 'src/app.types';
+import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { QueryDto } from 'src/common/dtos/query.dto';
 import { QueryService } from 'src/common/query/query.service';
 import { AuthorRepository } from 'src/database/repositories/author.repository';
@@ -47,7 +48,7 @@ export class AuthorsService {
     return auhtor;
   }
 
-  public async createAuthor(createAuthorDto: CreateAuthorDto) {
+  public async createAuthor(user: IActiveUser, createAuthorDto: CreateAuthorDto) {
     const existingAuthor = await this.authorRepository.findOneBy({
       email: createAuthorDto.email,
     });
@@ -58,13 +59,14 @@ export class AuthorsService {
     newAuthor.name = createAuthorDto.name;
     newAuthor.email = createAuthorDto.email;
     newAuthor.country = createAuthorDto.country;
+    newAuthor.createdBy = user.sub;
 
     await this.authorRepository.save(newAuthor);
 
     return newAuthor;
   }
 
-  public async updateAuthor(id: number, updateAuthorDto: UpdateAuthorDto) {
+  public async updateAuthor(id: number, user: IActiveUser, updateAuthorDto: UpdateAuthorDto) {
     const existingAuthor = await this.authorRepository.findOneBy({
       id: id,
     });
@@ -73,17 +75,19 @@ export class AuthorsService {
 
     existingAuthor.name = updateAuthorDto.name ?? existingAuthor.name;
     existingAuthor.country = updateAuthorDto.country ?? existingAuthor.country;
-
+    existingAuthor.updatedBy = user.sub;
     await this.authorRepository.save(existingAuthor);
 
     return existingAuthor;
   }
 
-  public async deleteAuthor(id: number) {
-    const result = await this.authorRepository.delete(id);
+  public async deleteAuthor(id: number, user: IActiveUser) {
+    const authorToDelete = await this.authorRepository.findOne({ where: { id: id } });
+    if (!authorToDelete) throw new NotFoundException('Author does not exist with this Id');
+    authorToDelete.deletedBy = user.sub;
+    await this.authorRepository.save(authorToDelete);
 
-    if (result.affected === 0) throw new NotFoundException('Author does not exist with this Id');
-
+    await this.authorRepository.softDelete(id);
     return { message: 'Author deleted successfully' };
   }
 }

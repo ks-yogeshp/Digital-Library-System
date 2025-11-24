@@ -1,14 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Any } from 'typeorm';
 
+import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { AvailabilityStatus } from 'src/database/entities/enums/availibity-status.enum';
+import { BookStatus } from 'src/database/entities/enums/book-status.enum';
 import { RequestStatus } from 'src/database/entities/enums/request-status.enum';
 import { ReservationRequest } from 'src/database/entities/reservation-request.entity';
 import { BookRepository } from 'src/database/repositories/book.repository';
 import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
 import { ReservationRequestRepository } from 'src/database/repositories/reservation-request.repository';
 import { UserRepository } from 'src/database/repositories/user.repository';
-import { CreateReservationRequestDto } from '../dto/create-reservation-request.dto';
 
 @Injectable()
 export class BookReserveService {
@@ -19,14 +20,14 @@ export class BookReserveService {
     private readonly userRepository: UserRepository
   ) {}
 
-  public async createReservation(id, createReservationRequestDto: CreateReservationRequestDto) {
+  public async createReservation(id, user: IActiveUser) {
     const request = await this.reservationRequestRepository.findOne({
       where: {
         book: {
           id: id,
         },
         user: {
-          id: createReservationRequestDto.userId,
+          id: user.sub,
         },
         requestStatus: Any([RequestStatus.APPROVED, RequestStatus.PENDING]),
       },
@@ -38,7 +39,7 @@ export class BookReserveService {
       id: id,
     });
     const userDetail = await this.userRepository.findOneBy({
-      id: createReservationRequestDto.userId,
+      id: user.sub,
     });
     if (!bookDetail || !userDetail)
       throw new BadRequestException('Invalid book or user. Please check the IDs.');
@@ -46,6 +47,19 @@ export class BookReserveService {
     if (bookDetail.availabilityStatus === AvailabilityStatus.AVAILABLE) {
       throw new BadRequestException(`The book "${bookDetail.name}" is currently available for borrowing.`);
     }
+    const borrowRecord = await this.borrowRecordRepository.findOne({
+      where: {
+        book: {
+          id: id,
+        },
+        user: {
+          id: user.sub,
+        },
+        bookStatus: Any([BookStatus.BORROWED, BookStatus.OVERDUE]),
+      },
+    });
+    if (borrowRecord) throw new BadRequestException('You cannot reserve a book you have already borrowed.');
+
     const newRequst = new ReservationRequest();
     newRequst.bookId = bookDetail.id;
     newRequst.userId = userDetail.id;

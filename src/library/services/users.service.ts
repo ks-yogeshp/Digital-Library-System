@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 
 import { QueryDto } from 'src/common/dtos/query.dto';
 import { QueryService } from 'src/common/query/query.service';
+import { User } from 'src/database/entities/user.entity';
 import { UserRepository } from 'src/database/repositories/user.repository';
 import { CreateUserDto, UpdateUserDto } from '../dto/user.dto';
 
@@ -50,7 +51,13 @@ export class UsersService {
 
     if (existingUser) throw new BadRequestException('User already exists with this email');
 
-    const newUser = this.userRepository.create(createUserDto);
+    const newUser = new User();
+    newUser.firstName = createUserDto.firstName;
+    newUser.lastName = createUserDto.lastName;
+    newUser.email = createUserDto.email;
+    newUser.password = createUserDto.password;
+    newUser.role = createUserDto.role;
+
     await this.userRepository.save(newUser);
     return newUser;
   }
@@ -70,7 +77,7 @@ export class UsersService {
   }
 
   public async deleteUser(id: number) {
-    const result = await this.userRepository.delete(id);
+    const result = await this.userRepository.softDelete(id);
 
     if (result.affected === 0) throw new NotFoundException('User does not exist with this Id');
 

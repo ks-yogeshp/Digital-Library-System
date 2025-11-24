@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Any, DataSource } from 'typeorm';
 
+import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { BookStatus } from 'src/database/entities/enums/book-status.enum';
 import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
 import { ReservationRequestService } from 'src/library/services/reservation-request.service';
-import { ReturnDto } from '../dto/return.dto';
 
 @Injectable()
 export class BookReturnService {
@@ -16,14 +16,14 @@ export class BookReturnService {
     private readonly dataSource: DataSource
   ) {}
 
-  public async bookReturn(id: number, returnDto: ReturnDto) {
+  public async bookReturn(id: number, user: IActiveUser) {
     const record = await this.borrowRecordRepository.findOne({
       where: {
         book: {
           id: id,
         },
         user: {
-          id: returnDto.userId,
+          id: user.sub,
         },
         bookStatus: Any([BookStatus.BORROWED, BookStatus.OVERDUE]),
       },
