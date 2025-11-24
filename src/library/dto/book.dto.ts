@@ -4,6 +4,7 @@ import { IsISBN, IsNotEmpty, IsString } from 'class-validator';
 import { Book, IBookWihtBorrowCount } from 'src/database/entities/book.entity';
 import { AvailabilityStatus } from 'src/database/entities/enums/availibity-status.enum';
 import { Category } from 'src/database/entities/enums/category.enum';
+import { Role } from 'src/database/entities/enums/role.enum';
 import {
   EnumField,
   NumberField,
@@ -12,11 +13,12 @@ import {
 } from '../../common/decorators/field.decorators';
 import { AuthorDto } from './author.dto';
 import { BorrowRecordDto } from './borrow-record.dto';
+import { MetadataSoftDto } from './metadata-soft.dto';
 import { ReservationRequestDto } from './reservation-request.dto';
 
 export type IBookDtoWihtBorrowCount = BookDto & { authorNames: string[]; borrowCount: number };
 
-export class BookDto {
+export class BookDto extends MetadataSoftDto {
   @NumberField({
     description: 'Unique identifier for the book',
     example: 1,
@@ -68,7 +70,8 @@ export class BookDto {
   })
   availabilityStatus: AvailabilityStatus;
 
-  constructor(book: Book) {
+  constructor(book: Book, role?: Role) {
+    super(book, role);
     this.id = book.id;
     this.name = book.name;
     this.ISBN = book.ISBN;
@@ -161,12 +164,12 @@ export class DetailedBookDto extends BookDto {
   })
   reservationHistory?: ReservationRequestDto[];
 
-  constructor(book: Book) {
-    super(book);
+  constructor(book: Book, role?: Role) {
+    super(book, role);
   }
 
-  static async toDto(book: Book) {
-    const bookDto = new DetailedBookDto(book);
+  static async toDto(book: Book, role?: Role) {
+    const bookDto = new DetailedBookDto(book, role);
     const author = book.authors ? (await book.authors).map((author) => new AuthorDto(author)) : undefined;
     const borrowingHistory = book.borrowingHistory
       ? (await book.borrowingHistory).map((borrowingHistory) => new BorrowRecordDto(borrowingHistory))

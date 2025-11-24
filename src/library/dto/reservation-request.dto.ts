@@ -1,10 +1,12 @@
 import { RequestStatus } from 'src/database/entities/enums/request-status.enum';
+import { Role } from 'src/database/entities/enums/role.enum';
 import { ReservationRequest } from 'src/database/entities/reservation-request.entity';
 import { DateField, EnumField, NumberField, ObjectField } from '../../common/decorators/field.decorators';
+import { AbstractSoftDto } from './abstract-soft.dto';
 import { BookDto } from './book.dto';
 import { UserDto } from './user.dto';
 
-export class ReservationRequestDto {
+export class ReservationRequestDto extends AbstractSoftDto {
   @NumberField({
     description: 'Unique identifier for the reservation request',
     example: 1,
@@ -45,7 +47,8 @@ export class ReservationRequestDto {
   })
   active_until: Date;
 
-  constructor(reservationRequest?: ReservationRequest) {
+  constructor(reservationRequest?: ReservationRequest, role?: Role) {
+    super(reservationRequest, role);
     if (reservationRequest) {
       this.id = reservationRequest.id;
       this.bookId = reservationRequest.bookId;
@@ -68,12 +71,12 @@ export class DetailedReservationRequestDto extends ReservationRequestDto {
   })
   user: UserDto;
 
-  constructor(reservationRequest: ReservationRequest) {
-    super(reservationRequest);
+  constructor(reservationRequest: ReservationRequest, role?: Role) {
+    super(reservationRequest, role);
   }
 
-  static async toDto(reservationRequest: ReservationRequest) {
-    const detailedDto = new DetailedReservationRequestDto(reservationRequest);
+  static async toDto(reservationRequest: ReservationRequest, role?: Role) {
+    const detailedDto = new DetailedReservationRequestDto(reservationRequest, role);
     delete detailedDto.bookId;
     delete detailedDto.userId;
     const book = await reservationRequest.book;

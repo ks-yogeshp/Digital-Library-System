@@ -1,20 +1,23 @@
 import { PickType } from '@nestjs/swagger';
 
+import { Role } from 'src/database/entities/enums/role.enum';
 import { IUserWithPenalty, User } from 'src/database/entities/user.entity';
 import {
   EmailField,
+  EnumField,
   NumberField,
   ObjectFieldOptional,
   PasswordField,
   StringField,
   StringFieldOptional,
 } from '../../common/decorators/field.decorators';
+import { AbstractSoftDto } from './abstract-soft.dto';
 import { BorrowRecordDto } from './borrow-record.dto';
 import { ReservationRequestDto } from './reservation-request.dto';
 
 export type IUserDtoWithPenalty = UserDto & { totalPenalty: number };
 
-export class UserDto {
+export class UserDto extends AbstractSoftDto {
   @NumberField({
     description: 'Unique identifier for the user',
     example: 1,
@@ -41,15 +44,23 @@ export class UserDto {
   })
   email: string;
 
-  constructor(user: User) {
+  @EnumField(() => Role, {
+    description: 'Role of the user in the system',
+    example: Role.STUDENT,
+  })
+  role: Role;
+
+  constructor(user: User, role?: Role) {
+    super(user, role);
     this.id = user.id;
     this.firstName = user.firstName;
     this.lastName = user.lastName;
     this.email = user.email;
+    this.role = user.role ?? Role.STUDENT;
   }
 }
 
-export class CreateUserDto extends PickType(UserDto, ['firstName', 'lastName', 'email']) {
+export class CreateUserDto extends PickType(UserDto, ['firstName', 'lastName', 'email', 'role']) {
   @PasswordField({
     description: 'Password for the user account',
     example: 'StrongP@ssw0rd!',

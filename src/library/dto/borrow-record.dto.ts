@@ -1,5 +1,6 @@
 import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
 import { BookStatus } from 'src/database/entities/enums/book-status.enum';
+import { Role } from 'src/database/entities/enums/role.enum';
 import {
   BooleanFieldOptional,
   DateField,
@@ -7,10 +8,11 @@ import {
   NumberField,
   ObjectField,
 } from '../../common/decorators/field.decorators';
+import { AbstractSoftDto } from './abstract-soft.dto';
 import { BookDto } from './book.dto';
 import { UserDto } from './user.dto';
 
-export class BorrowRecordDto {
+export class BorrowRecordDto extends AbstractSoftDto {
   @NumberField({
     description: 'Unique identifier for the borrow record',
     example: 1,
@@ -78,7 +80,8 @@ export class BorrowRecordDto {
   })
   bookStatus: BookStatus;
 
-  constructor(borrowRecord: BorrowRecord) {
+  constructor(borrowRecord: BorrowRecord, role?: Role) {
+    super(borrowRecord, role);
     this.id = borrowRecord.id;
     this.userId = borrowRecord.userId;
     this.bookId = borrowRecord.bookId;
@@ -103,12 +106,12 @@ export class DetailedBorrowRecordDto extends BorrowRecordDto {
   })
   user: UserDto;
 
-  constructor(borrowRecord: BorrowRecord) {
-    super(borrowRecord);
+  constructor(borrowRecord: BorrowRecord, role?: Role) {
+    super(borrowRecord, role);
   }
 
-  static async toDto(borrowRecord: BorrowRecord) {
-    const detailedDto = new DetailedBorrowRecordDto(borrowRecord);
+  static async toDto(borrowRecord: BorrowRecord, role?: Role) {
+    const detailedDto = new DetailedBorrowRecordDto(borrowRecord, role);
     delete detailedDto.bookId;
     delete detailedDto.userId;
     const book = await borrowRecord.book;
