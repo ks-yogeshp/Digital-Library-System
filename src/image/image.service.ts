@@ -27,9 +27,9 @@ export class ImageService {
         throw new NotFoundException('Author not found');
       }
       const existing = await this.imageMetadataRepository.findOne({ where: { author: { id } } });
-      if(existing){
+      if (existing) {
         imageMetadata = existing;
-      }else{
+      } else {
         imageMetadata.authorId = author.id;
       }
     } else if (type === 'book') {
@@ -38,9 +38,9 @@ export class ImageService {
         throw new NotFoundException('Book not found');
       }
       const existing = await this.imageMetadataRepository.findOne({ where: { book: { id } } });
-      if(existing){
+      if (existing) {
         imageMetadata = existing;
-      }else{
+      } else {
         imageMetadata.bookId = book.id;
       }
     } else {
