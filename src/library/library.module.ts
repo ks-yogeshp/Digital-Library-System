@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
+import { AuthModule } from 'src/auth/auth.module';
 import { DatabaseModule } from 'src/database/database.module';
 import { AuthorsController } from './authors.controller';
 import { BooksController } from './books.controller';
@@ -17,7 +18,7 @@ import { UsersService } from './services/users.service';
 import { UsersController } from './users.controller';
 
 @Module({
-  imports: [DatabaseModule.forRoot()],
+  imports: [DatabaseModule.forRoot(), forwardRef(() => AuthModule)],
   controllers: [
     AuthorsController,
     BooksController,
@@ -36,6 +37,6 @@ import { UsersController } from './users.controller';
     BorrowRecordService,
     ReservationRequestService,
   ],
-  exports: [ReservationRequestService],
+  exports: [ReservationRequestService, UsersService],
 })
 export class LibraryModule {}
