@@ -47,6 +47,8 @@ const env = cleanEnv(process.env, {
   CLIENT_ID: str(),
   CLIENT_SECRET: str(),
   CALLBACK_URL: str(),
+
+  REDIS_URL: str(),
 });
 
 const AppConfig = () => ({ ...env }) as const;
