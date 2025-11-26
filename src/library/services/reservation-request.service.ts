@@ -1,8 +1,9 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Queue } from 'bullmq';
 import { add, startOfDay } from 'date-fns';
 import { Any, DataSource, EntityManager, MoreThan } from 'typeorm';
 
-import { MailService } from 'src/common/mail/mail.service';
 import { Book } from 'src/database/entities/book.entity';
 import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
 import { AvailabilityStatus } from 'src/database/entities/enums/availibity-status.enum';
@@ -15,9 +16,9 @@ export class ReservationRequestService {
   constructor(
     private readonly reservationRequestRepository: ReservationRequestRepository,
 
-    private readonly mailService: MailService,
+    private readonly dataSource: DataSource,
 
-    private readonly dataSource: DataSource
+    @InjectQueue('mail-queue') private mailQueue: Queue
   ) {}
 
   public async get() {
@@ -27,7 +28,9 @@ export class ReservationRequestService {
   public async nextReservation(book: Book, manager: EntityManager) {
     const nextReservation = await this.reservationRequestRepository.findOne({
       where: {
-        book: book,
+        book: {
+          id: book.id,
+        },
         requestStatus: RequestStatus.PENDING,
       },
       order: {
@@ -44,7 +47,19 @@ export class ReservationRequestService {
 
       nextReservation.requestStatus = RequestStatus.APPROVED;
       nextReservation.active_until = activeUntil;
-      await this.mailService.sendReservationApproved(nextReservation);
+      await this.mailQueue.add(
+        'mail-queue',
+        {
+          name: 'reservation-approve',
+          data: {
+            id: nextReservation.id,
+          },
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: true,
+        }
+      );
       await manager.save(nextReservation);
     } else {
       book.availabilityStatus = AvailabilityStatus.AVAILABLE;
