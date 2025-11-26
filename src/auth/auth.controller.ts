@@ -24,7 +24,6 @@ export class AuthController {
     },
   })
   login(@Request() res) {
-    // console.log('Login response user:', res.user);
     return this.authService.login(res.user);
   }
 

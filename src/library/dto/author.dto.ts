@@ -60,7 +60,6 @@ export class DetailedAuthorDto extends AuthorDto {
   books?: BookDto[];
 
   constructor(author: Author, role?: Role) {
-    console.log('DetailedAuthorDto constructor called', role);
     super(author, role);
   }
 

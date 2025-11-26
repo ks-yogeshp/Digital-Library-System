@@ -6,8 +6,6 @@ import { JwtService } from '@nestjs/jwt';
 import { CONFIG } from 'src/config';
 import { Role } from 'src/database/entities/enums/role.enum';
 
-export const PermissionsSymbol = Symbol('userPermissions');
-
 @Injectable()
 export class PermissionGuard implements CanActivate {
   constructor(
