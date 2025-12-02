@@ -3,7 +3,6 @@ import { join } from 'path';
 import type { Response } from 'express';
 import {
   Controller,
-  FileTypeValidator,
   HttpStatus,
   MaxFileSizeValidator,
   Param,

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { DataSource, In } from 'typeorm';
 
 import { MyEntityMap } from 'src/app.types';
+import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { QueryDto } from 'src/common/dtos/query.dto';
 import { QueryService } from 'src/common/query/query.service';
 import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
@@ -10,9 +11,7 @@ import { BookRepository } from 'src/database/repositories/book.repository';
 import { Book } from '../../database/entities/book.entity';
 import { CreateBookDto, UpdateBookDto } from '../dto/book.dto';
 import { CheckoutDto } from '../dto/checkout.dto';
-import { CreateReservationRequestDto } from '../dto/create-reservation-request.dto';
 import { ExtendDto } from '../dto/extend.dto';
-import { ReturnDto } from '../dto/return.dto';
 import { BookCheckoutService } from './book-checkout.service';
 import { BookExtendService } from './book-extend.service';
 import { BookReserveService } from './book-reserve.service';
@@ -77,7 +76,7 @@ export class BooksService {
     return book;
   }
 
-  public async createBook(createBookDto: CreateBookDto) {
+  public async createBook(user: IActiveUser, createBookDto: CreateBookDto) {
     const existingBook = await this.bookRepository.findOneBy({
       ISBN: createBookDto.ISBN,
     });
@@ -100,6 +99,7 @@ export class BooksService {
     newBook.category = createBookDto.category;
     newBook.version = createBookDto.version;
     newBook.yearOfPublication = createBookDto.yearOfPublication;
+    newBook.createdBy = user.sub;
     // newBook.authors = Promise.resolve([...authors]);
     await this.dataSource.transaction(async (manager) => {
       const savedBook = await manager.getRepository(Book).save(newBook);
@@ -118,7 +118,7 @@ export class BooksService {
     return book;
   }
 
-  public async updateBook(id: number, updateBookDto: UpdateBookDto) {
+  public async updateBook(id: number, user: IActiveUser, updateBookDto: UpdateBookDto) {
     const existingBook = await this.bookRepository.findOneBy({
       id: id,
     });
@@ -138,6 +138,7 @@ export class BooksService {
     existingBook.yearOfPublication = updateBookDto.yearOfPublication ?? existingBook.yearOfPublication;
     existingBook.category = updateBookDto.category ?? existingBook.category;
     existingBook.version = updateBookDto.version ?? existingBook.version;
+    existingBook.updatedBy = user.sub;
     // existingBook.authors = updateBookDto.authorsIds ? Promise.resolve(authors) : existingBook.authors;
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Book).save(existingBook);
@@ -165,31 +166,36 @@ export class BooksService {
     return book;
   }
 
-  public async deleteBook(id: number) {
-    const result = await this.bookRepository.delete(id);
+  public async deleteBook(id: number, user: IActiveUser) {
+    const book = await this.bookRepository.findOneBy({ id });
 
-    if (result.affected === 0) throw new NotFoundException('Book does not exist with this Id');
+    if (!book) throw new NotFoundException('Book does not exist with this Id');
+
+    book.deletedBy = user.sub;
+    await this.bookRepository.save(book);
+
+    await this.bookRepository.softDelete(id);
 
     return { message: 'Book deleted successfully' };
   }
 
-  public async bookCheckout(id: number, checkoutDto: CheckoutDto) {
-    const record = await this.bookCheckoutService.checkout(id, checkoutDto);
+  public async bookCheckout(id: number, user: IActiveUser, checkoutDto: CheckoutDto) {
+    const record = await this.bookCheckoutService.checkout(id, user, checkoutDto);
     return this.getRecord(record.id);
   }
 
-  public async bookReturn(id: number, returnDto: ReturnDto) {
-    const record = await this.bookReturnService.bookReturn(id, returnDto);
+  public async bookReturn(id: number, user: IActiveUser) {
+    const record = await this.bookReturnService.bookReturn(id, user);
     return this.getRecord(record.id);
   }
 
-  public async extendBook(id: number, extendDto: ExtendDto) {
-    const record = await this.bookExtendService.extendBook(id, extendDto);
+  public async extendBook(id: number, user: IActiveUser, extendDto: ExtendDto) {
+    const record = await this.bookExtendService.extendBook(id, user, extendDto);
     return this.getRecord(record.id);
   }
 
-  public async createReservation(id: number, createReservationRequestDto: CreateReservationRequestDto) {
-    return this.bookReserveService.createReservation(id, createReservationRequestDto);
+  public async createReservation(id: number, user: IActiveUser) {
+    return this.bookReserveService.createReservation(id, user);
   }
 
   async getRecord(id: number) {

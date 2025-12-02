@@ -41,6 +41,14 @@ const env = cleanEnv(process.env, {
   LOG_TIMESTAMP: bool({ default: true, devDefault: false }),
   LOG_HTTP_REQUESTS: bool({ default: false, devDefault: false }),
   LOG_PROVIDERS_REQUESTS: bool({ default: true, devDefault: false }),
+
+  SECRET_KEY: str(),
+
+  CLIENT_ID: str(),
+  CLIENT_SECRET: str(),
+  CALLBACK_URL: str(),
+
+  REDIS_URL: str(),
 });
 
 const AppConfig = () => ({ ...env }) as const;

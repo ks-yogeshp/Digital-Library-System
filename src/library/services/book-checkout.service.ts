@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { add, startOfDay } from 'date-fns';
 import { DataSource } from 'typeorm';
 
+import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
 import { BookRepository } from 'src/database/repositories/book.repository';
 import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
@@ -21,10 +22,10 @@ export class BookCheckoutService {
     private readonly dataSource: DataSource
   ) {}
 
-  public async checkout(id: number, checkoutDto: CheckoutDto) {
+  public async checkout(id: number, user: IActiveUser, checkoutDto: CheckoutDto) {
     const bookDetail = await this.bookRepository.findOneBy({ id });
     const userDetail = await this.userRepository.findOneBy({
-      id: checkoutDto.userId,
+      id: user.sub,
     });
 
     if (!bookDetail || !userDetail) {

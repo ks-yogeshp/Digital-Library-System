@@ -1,18 +1,16 @@
-import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany, OneToMany } from 'typeorm';
 
 import { Author } from 'src/database/entities/author.entity';
 import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
 import { AvailabilityStatus } from './enums/availibity-status.enum';
 import { Category } from './enums/category.enum';
+import { MetadataSoft } from './metadata-soft.entity';
 import { ReservationRequest } from './reservation-request.entity';
 
 export type IBookWihtBorrowCount = Book & { authorNames: string[]; borrowCount: number };
 
 @Entity()
-export class Book {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class Book extends MetadataSoft {
   @Column({
     type: 'varchar',
     length: 96,
@@ -37,7 +35,11 @@ export class Book {
   })
   category: Category[];
 
-  @ManyToMany(() => Author, (author) => author.books, { eager: false, onDelete: 'CASCADE', onUpdate: 'CASCADE' })
+  @ManyToMany(() => Author, (author) => author.books, {
+    eager: false,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
   @JoinTable()
   authors?: Promise<Author[]>;
 

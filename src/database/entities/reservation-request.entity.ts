@@ -1,14 +1,12 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { Book } from 'src/database/entities/book.entity';
 import { RequestStatus } from 'src/database/entities/enums/request-status.enum';
 import { User } from 'src/database/entities/user.entity';
+import { AbstractSoftEntity } from './abstract-soft.entity';
 
 @Entity()
-export class ReservationRequest {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class ReservationRequest extends AbstractSoftEntity {
   @Column()
   bookId: number;
 

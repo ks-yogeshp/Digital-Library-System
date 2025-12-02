@@ -1,7 +1,11 @@
 import type { Response } from 'express';
 import { Controller, Query, Res } from '@nestjs/common';
 
+import type { IActiveUser } from 'src/auth/interfaces/active-user.interface';
+import { ActiveUser } from 'src/auth/decorators/active-user.decorator';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 import { IBookWihtBorrowCount } from 'src/database/entities/book.entity';
+import { Role } from 'src/database/entities/enums/role.enum';
 import { IUserWithPenalty } from 'src/database/entities/user.entity';
 import { GetRoute } from './../common/decorators/route.decorators';
 import { BookActivitySummaryDto } from './dto/book-activity-summary.dto';
@@ -15,6 +19,9 @@ import { BorrowRecordService } from './services/borrow-record.service';
 export class BorrowRecordController {
   constructor(private readonly borrowRecordService: BorrowRecordService) {}
 
+  @Auth({
+    roles: [Role.ADMIN, Role.MANAGER],
+  })
   @GetRoute('', {
     summary: 'Get all borrow records',
     description: 'Retrieve a list of all borrow records.',
@@ -24,11 +31,14 @@ export class BorrowRecordController {
       isArray: true,
     },
   })
-  public async getAllUsers() {
+  public async getAllUsers(@ActiveUser() user: IActiveUser) {
     const borrowRecords = await this.borrowRecordService.getBorrowRecord();
-    return borrowRecords.map((borrowRecord) => new BorrowRecordDto(borrowRecord));
+    return borrowRecords.map((borrowRecord) => new BorrowRecordDto(borrowRecord, user.role));
   }
 
+  @Auth({
+    roles: [Role.ADMIN, Role.MANAGER],
+  })
   @GetRoute('penalty', {
     summary: 'Get penalties summary',
     description: 'Retrieve a summary of penalties for users based on query parameters.',
@@ -44,6 +54,9 @@ export class BorrowRecordController {
     return penalties.map((penalty) => new UserDtoWithPenalty(penalty));
   }
 
+  @Auth({
+    roles: [Role.ADMIN, Role.MANAGER],
+  })
   @GetRoute('penalty/export', {
     summary: 'Export penalties summary as CSV',
     description: 'Export the penalties summary for users as a CSV file based on query parameters.',
@@ -60,6 +73,9 @@ export class BorrowRecordController {
     res.send(csv);
   }
 
+  @Auth({
+    roles: [Role.ADMIN, Role.MANAGER],
+  })
   @GetRoute('bookActivitySummary', {
     summary: 'Get book activity summary',
     description: 'Retrieve a summary of book activities based on query parameters.',

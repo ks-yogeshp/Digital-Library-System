@@ -8,14 +8,18 @@ export class ImageMetadata {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({
+    nullable: true,
+  })
   authorId?: number;
 
   @OneToOne(() => Author, { nullable: true })
   @JoinColumn()
   author?: Promise<Author>;
 
-  @Column()
+  @Column({
+    nullable: true,
+  })
   bookId?: number;
 
   @OneToOne(() => Book, { nullable: true })

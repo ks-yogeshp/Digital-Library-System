@@ -1,7 +1,11 @@
 import { Body, Controller, Param, ParseIntPipe, Query } from '@nestjs/common';
 
+import type { IActiveUser } from 'src/auth/interfaces/active-user.interface';
+import { ActiveUser } from 'src/auth/decorators/active-user.decorator';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 import { PageDto } from 'src/common/dtos/page.dto';
 import { QueryDto } from 'src/common/dtos/query.dto';
+import { Role } from 'src/database/entities/enums/role.enum';
 import { DeleteRoute, GetRoute, PostRoute, PutRoute } from './../common/decorators/route.decorators';
 import { AuthorDto, CreateAuthorDto, DetailedAuthorDto, UpdateAuthorDto } from './dto/author.dto';
 import { SuccessDto } from './dto/success.dto';
@@ -11,6 +15,7 @@ import { AuthorsService } from './services/authors.service';
 export class AuthorsController {
   constructor(private readonly authorsService: AuthorsService) {}
 
+  @Auth()
   @GetRoute('', {
     summary: 'Get All Authors',
     description: 'Retrieve a list of all authors with optional pagination and filtering',
@@ -20,49 +25,57 @@ export class AuthorsController {
       isArray: true,
     },
   })
-  public async getAllAuthors(@Query() queryDto: QueryDto) {
+  public async getAllAuthors(@ActiveUser() user: IActiveUser, @Query() queryDto: QueryDto) {
     const authors = await this.authorsService.getAllAuthors(queryDto);
-    const result = authors.result.map((author) => new AuthorDto(author));
+    const result = authors.result.map((author) => new AuthorDto(author, user.role));
     return new PageDto(result, queryDto.page, queryDto.limit, authors.totalItems, authors.newUrl);
   }
 
+  @Auth()
   @GetRoute('{:id}', {
     summary: 'Get Author by ID',
     description: 'Retrieve a single author by their unique ID',
     Ok: DetailedAuthorDto,
   })
-  public async getAuthorById(@Param('id', ParseIntPipe) id: number) {
+  public async getAuthorById(@Param('id', ParseIntPipe) id: number, @ActiveUser() user: IActiveUser) {
     const author = await this.authorsService.getAuthorById(id);
-    return DetailedAuthorDto.toDto(author);
+    return DetailedAuthorDto.toDto(author, user.role);
   }
 
+  @Auth({ roles: [Role.ADMIN, Role.MANAGER] })
   @PostRoute('', {
     summary: 'Create New Author',
     description: 'Create a new author with the provided details',
     Created: DetailedAuthorDto,
   })
-  public async createAuthor(@Body() createAuthorDto: CreateAuthorDto) {
-    const author = await this.authorsService.createAuthor(createAuthorDto);
-    return DetailedAuthorDto.toDto(author);
+  public async createAuthor(@ActiveUser() user: IActiveUser, @Body() createAuthorDto: CreateAuthorDto) {
+    const author = await this.authorsService.createAuthor(user, createAuthorDto);
+    return DetailedAuthorDto.toDto(author, user.role);
   }
 
+  @Auth({ roles: [Role.ADMIN, Role.MANAGER] })
   @PutRoute('{:id}', {
     summary: 'Update Author',
     description: 'Update the details of an existing author by their ID',
     Ok: DetailedAuthorDto,
   })
-  public async updateAuthor(@Param('id', ParseIntPipe) id: number, @Body() updateAuthorDto: UpdateAuthorDto) {
-    const author = await this.authorsService.updateAuthor(id, updateAuthorDto);
-    return DetailedAuthorDto.toDto(author);
+  public async updateAuthor(
+    @Param('id', ParseIntPipe) id: number,
+    @ActiveUser() user: IActiveUser,
+    @Body() updateAuthorDto: UpdateAuthorDto
+  ) {
+    const author = await this.authorsService.updateAuthor(id, user, updateAuthorDto);
+    return DetailedAuthorDto.toDto(author, user.role);
   }
 
+  @Auth({ roles: [Role.ADMIN] })
   @DeleteRoute('{:id}', {
     summary: 'Delete Author',
     description: 'Delete an author by their unique ID',
     Ok: SuccessDto,
   })
-  public async deleteAuthor(@Param('id', ParseIntPipe) id: number) {
-    await this.authorsService.deleteAuthor(id);
+  public async deleteAuthor(@Param('id', ParseIntPipe) id: number, @ActiveUser() user: IActiveUser) {
+    await this.authorsService.deleteAuthor(id, user);
     return new SuccessDto();
   }
 }
