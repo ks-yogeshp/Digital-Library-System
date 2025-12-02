@@ -1,7 +1,7 @@
-import { Author } from './authors/author.entity';
-import { Book } from './books/book.entity';
+import { Author } from './database/entities/author.entity';
+import { Book } from './database/entities/book.entity';
 
 export type MyEntityMap = {
-    Book: Book;
-    Author: Author;
-}
+  Book: Book;
+  Author: Author;
+};
