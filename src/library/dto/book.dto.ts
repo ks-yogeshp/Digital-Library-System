@@ -1,10 +1,11 @@
 import { ApiProperty, PickType } from '@nestjs/swagger';
 import { IsISBN, IsNotEmpty, IsString } from 'class-validator';
+import { Types } from 'mongoose';
 
-import { Book, IBookWihtBorrowCount } from 'src/database/entities/book.entity';
-import { AvailabilityStatus } from 'src/database/entities/enums/availibity-status.enum';
-import { Category } from 'src/database/entities/enums/category.enum';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { BookDocument, IBookWihtBorrowCount } from 'src/database/schemas/book.schema';
+import { AvailabilityStatus } from 'src/database/schemas/enums/availibity-status.enum';
+import { Category } from 'src/database/schemas/enums/category.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 import {
   EnumField,
   NumberField,
@@ -19,12 +20,11 @@ import { ReservationRequestDto } from './reservation-request.dto';
 export type IBookDtoWihtBorrowCount = BookDto & { authorNames: string[]; borrowCount: number };
 
 export class BookDto extends MetadataSoftDto {
-  @NumberField({
+  @StringField({
     description: 'Unique identifier for the book',
-    example: 1,
-    int: true,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  id: number;
+  id: string;
 
   @StringField({
     description: 'Name of the book',
@@ -70,7 +70,7 @@ export class BookDto extends MetadataSoftDto {
   })
   availabilityStatus: AvailabilityStatus;
 
-  constructor(book: Book, role?: Role) {
+  constructor(book: BookDocument, role?: Role) {
     super(book, role);
     this.id = book.id;
     this.name = book.name;
@@ -91,13 +91,13 @@ export class CreateBookDto extends PickType(BookDto, [
 ]) {
   @NumberField({
     description: 'Array of author IDs',
-    example: [1, 2, 3],
+    example: ['64b2f3c1b5d9a6a1e2d3f4b5', '64b2f3c1b5d9a6a1e2d3f4b6', '64b2f3c1b5d9a6a1e2d3f4b7'],
     int: true,
     each: true,
     isArray: true,
     unique: true,
   })
-  authorIds: number[];
+  authorIds: string[];
 }
 
 export class UpdateBookDto extends PickType(BookDto, [
@@ -109,13 +109,13 @@ export class UpdateBookDto extends PickType(BookDto, [
 ]) {
   @NumberField({
     description: 'Array of author IDs',
-    example: [1, 2, 3],
+    example: ['64b2f3c1b5d9a6a1e2d3f4b5', '64b2f3c1b5d9a6a1e2d3f4b6', '64b2f3c1b5d9a6a1e2d3f4b7'],
     int: true,
     each: true,
     isArray: true,
     unique: true,
   })
-  authorsIds: number[];
+  authorIds: string[];
 }
 
 export class BookDtoWithBorrowCount extends BookDto {
@@ -148,38 +148,36 @@ export class DetailedBookDto extends BookDto {
     isArray: true,
     each: true,
   })
-  authors?: AuthorDto[];
+  authors?: (string | AuthorDto)[];
 
   @ObjectFieldOptional(() => BorrowRecordDto, {
     description: 'Borrowing history of the book',
     isArray: true,
     each: true,
   })
-  borrowingHistory?: BorrowRecordDto[];
+  borrowingHistory?: (string | BorrowRecordDto)[];
 
   @ObjectFieldOptional(() => ReservationRequestDto, {
     description: 'History of reservation requests for the user',
     isArray: true,
     each: true,
   })
-  reservationHistory?: ReservationRequestDto[];
+  reservationHistory?: (string | ReservationRequestDto)[];
 
-  constructor(book: Book, role?: Role) {
+  constructor(book: BookDocument, role?: Role) {
     super(book, role);
-  }
-
-  static async toDto(book: Book, role?: Role) {
-    const bookDto = new DetailedBookDto(book, role);
-    const author = book.authors ? (await book.authors).map((author) => new AuthorDto(author)) : undefined;
-    const borrowingHistory = book.borrowingHistory
-      ? (await book.borrowingHistory).map((borrowingHistory) => new BorrowRecordDto(borrowingHistory))
-      : undefined;
-    const reservationHistory = book.reservationHistory
-      ? (await book.reservationHistory).map((reservation) => new ReservationRequestDto(reservation))
-      : undefined;
-    bookDto.authors = author;
-    bookDto.borrowingHistory = borrowingHistory;
-    bookDto.reservationHistory = reservationHistory;
-    return bookDto;
+    this.authors = book.authors?.map((author) =>
+      author instanceof Types.ObjectId ? author.toString() : new AuthorDto(author, role)
+    );
+    this.borrowingHistory = book.borrowHistory?.map((borrowHistory) =>
+      borrowHistory instanceof Types.ObjectId
+        ? borrowHistory.toString()
+        : new BorrowRecordDto(borrowHistory, role)
+    );
+    this.reservationHistory = book.reservationHistory?.map((reservationHistory) =>
+      reservationHistory instanceof Types.ObjectId
+        ? reservationHistory.toString()
+        : new ReservationRequestDto(reservationHistory, role)
+    );
   }
 }

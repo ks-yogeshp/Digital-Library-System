@@ -1,38 +1,38 @@
-import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
-import { BookStatus } from 'src/database/entities/enums/book-status.enum';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Types } from 'mongoose';
+
+import { BorrowRecordDocument } from 'src/database/schemas/borrow-record.schema';
+import { BookStatus } from 'src/database/schemas/enums/book-status.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 import {
   BooleanFieldOptional,
   DateField,
   EnumField,
   NumberField,
-  ObjectField,
+  StringField,
+  StringFieldOptional,
 } from '../../common/decorators/field.decorators';
 import { AbstractSoftDto } from './abstract-soft.dto';
 import { BookDto } from './book.dto';
 import { UserDto } from './user.dto';
 
 export class BorrowRecordDto extends AbstractSoftDto {
-  @NumberField({
+  @StringField({
     description: 'Unique identifier for the borrow record',
-    example: 1,
-    int: true,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  id: number;
+  id: string;
 
-  @NumberField({
+  @StringFieldOptional({
     description: 'Unique identifier for the book',
-    example: 1,
-    int: true,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  bookId?: number;
+  book?: string | BookDto;
 
-  @NumberField({
+  @StringFieldOptional({
     description: 'Unique identifier for the user',
-    example: 1,
-    int: true,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  userId?: number;
+  user?: string | UserDto;
 
   @DateField({
     description: 'Date when the book was borrowed',
@@ -80,11 +80,19 @@ export class BorrowRecordDto extends AbstractSoftDto {
   })
   bookStatus: BookStatus;
 
-  constructor(borrowRecord: BorrowRecord, role?: Role) {
+  constructor(borrowRecord: BorrowRecordDocument, role?: Role) {
     super(borrowRecord, role);
     this.id = borrowRecord.id;
-    this.userId = borrowRecord.userId;
-    this.bookId = borrowRecord.bookId;
+    this.user = borrowRecord.user
+      ? borrowRecord.user instanceof Types.ObjectId
+        ? borrowRecord.user.toString()
+        : new UserDto(borrowRecord.user, role)
+      : undefined;
+    this.book = borrowRecord.book
+      ? borrowRecord.book instanceof Types.ObjectId
+        ? borrowRecord.book.toString()
+        : new BookDto(borrowRecord.book, role)
+      : undefined;
     this.borrowDate = borrowRecord.borrowDate;
     this.dueDate = borrowRecord.dueDate;
     this.penalty = borrowRecord.penalty;
@@ -92,32 +100,5 @@ export class BorrowRecordDto extends AbstractSoftDto {
     this.extensionCount = borrowRecord.extensionCount;
     this.bookStatus = borrowRecord.bookStatus;
     this.returnDate = borrowRecord.returnDate;
-  }
-}
-
-export class DetailedBorrowRecordDto extends BorrowRecordDto {
-  @ObjectField(() => BookDto, {
-    description: 'Details of the borrowed book',
-  })
-  book: BookDto;
-
-  @ObjectField(() => UserDto, {
-    description: 'Details of the user who borrowed the book',
-  })
-  user: UserDto;
-
-  constructor(borrowRecord: BorrowRecord, role?: Role) {
-    super(borrowRecord, role);
-  }
-
-  static async toDto(borrowRecord: BorrowRecord, role?: Role) {
-    const detailedDto = new DetailedBorrowRecordDto(borrowRecord, role);
-    delete detailedDto.bookId;
-    delete detailedDto.userId;
-    const book = await borrowRecord.book;
-    const user = await borrowRecord.user;
-    detailedDto.book = new BookDto(book);
-    detailedDto.user = new UserDto(user);
-    return detailedDto;
   }
 }

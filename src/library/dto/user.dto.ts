@@ -1,7 +1,9 @@
 import { PickType } from '@nestjs/swagger';
+import { Types } from 'mongoose';
+import { use } from 'passport';
 
-import { Role } from 'src/database/entities/enums/role.enum';
-import { IUserWithPenalty, User } from 'src/database/entities/user.entity';
+import { Role } from 'src/database/schemas/enums/role.enum';
+import { IUserWithPenalty, UserDocument } from 'src/database/schemas/user.schema';
 import {
   EmailField,
   EnumField,
@@ -18,13 +20,11 @@ import { ReservationRequestDto } from './reservation-request.dto';
 export type IUserDtoWithPenalty = UserDto & { totalPenalty: number };
 
 export class UserDto extends AbstractSoftDto {
-  @NumberField({
+  @StringField({
     description: 'Unique identifier for the user',
-    example: 1,
-    int: true,
-    isPositive: true,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  id: number;
+  id: string;
 
   @StringField({
     description: 'First name of the user',
@@ -50,7 +50,7 @@ export class UserDto extends AbstractSoftDto {
   })
   role: Role;
 
-  constructor(user: User, role?: Role) {
+  constructor(user: UserDocument, role?: Role) {
     super(user, role);
     this.id = user.id;
     this.firstName = user.firstName;
@@ -89,31 +89,24 @@ export class DetailedUserDto extends UserDto {
     isArray: true,
     each: true,
   })
-  borrowingHistory?: BorrowRecordDto[];
+  borrowingHistory?: (string | BorrowRecordDto)[];
 
   @ObjectFieldOptional(() => ReservationRequestDto, {
     description: 'History of reservation requests for the user',
     isArray: true,
     each: true,
   })
-  reservationHistory?: ReservationRequestDto[];
+  reservationHistory?: (string | ReservationRequestDto)[];
 
-  constructor(user: User) {
+  constructor(user: UserDocument) {
     super(user);
-  }
-
-  static async toDto(user: User) {
-    const userDto = new DetailedUserDto(user);
-    const borrowingHistory = user.borrowingHistory
-      ? (await user.borrowingHistory).map((borrowingHistory) => new BorrowRecordDto(borrowingHistory))
-      : undefined;
-    const reservationHistory = user.reservationHistory
-      ? (await user.reservationHistory).map(
-          (reservationHistory) => new ReservationRequestDto(reservationHistory)
-        )
-      : undefined;
-    userDto.borrowingHistory = borrowingHistory;
-    userDto.reservationHistory = reservationHistory;
-    return userDto;
+    this.borrowingHistory = user.borrowHistory?.map((borrowHistory) =>
+      borrowHistory instanceof Types.ObjectId ? borrowHistory.toString() : new BorrowRecordDto(borrowHistory)
+    );
+    this.reservationHistory = user.reservationHistory?.map((reservationHistory) =>
+      reservationHistory instanceof Types.ObjectId
+        ? reservationHistory.toString()
+        : new ReservationRequestDto(reservationHistory)
+    );
   }
 }

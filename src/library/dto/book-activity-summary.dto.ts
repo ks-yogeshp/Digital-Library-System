@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 
-import { Category } from 'src/database/entities/enums/category.enum';
+import { Category } from 'src/database/schemas/enums/category.enum';
 import {
   DateFieldOptional,
   EnumFieldOptional,

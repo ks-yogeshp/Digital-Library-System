@@ -1,5 +1,5 @@
 import { DateField, DateFieldOptional } from 'src/common/decorators/field.decorators';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 
 type BaseDtoInterface = AbstractSoftDto;
 export class AbstractSoftDto {
@@ -21,15 +21,15 @@ export class AbstractSoftDto {
   })
   deletedAt?: Date;
 
-  constructor(entity?: Partial<BaseDtoInterface>, role?: Role) {
-    if (entity == null) {
+  constructor(model?: Partial<BaseDtoInterface>, role?: Role) {
+    if (model == null) {
       return;
     }
 
     if (role ? [Role.ADMIN, Role.MANAGER].includes(role) : false) {
-      this.createdAt = entity.createdAt ?? undefined;
-      this.updatedAt = entity.updatedAt ?? undefined;
-      this.deletedAt = entity.deletedAt ?? undefined;
+      this.createdAt = model.createdAt ?? undefined;
+      this.updatedAt = model.updatedAt ?? undefined;
+      this.deletedAt = model.deletedAt ?? undefined;
     }
   }
 }

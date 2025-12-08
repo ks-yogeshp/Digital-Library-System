@@ -1,10 +1,10 @@
 import { PickType } from '@nestjs/swagger';
+import { Types } from 'mongoose';
 
-import { Author } from 'src/database/entities/author.entity';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { AuthorDocument } from 'src/database/schemas/author.schema';
+import { Role } from 'src/database/schemas/enums/role.enum';
 import {
   EmailField,
-  NumberField,
   ObjectFieldOptional,
   StringField,
   StringFieldOptional,
@@ -13,12 +13,11 @@ import { BookDto } from './book.dto';
 import { MetadataSoftDto } from './metadata-soft.dto';
 
 export class AuthorDto extends MetadataSoftDto {
-  @NumberField({
+  @StringField({
     description: 'Unique identifier for the user',
-    example: 1,
-    int: true,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  id: number;
+  id: string;
 
   @StringField({
     description: 'Full name of the user',
@@ -38,7 +37,7 @@ export class AuthorDto extends MetadataSoftDto {
   })
   country?: string;
 
-  constructor(author: Author, role?: Role) {
+  constructor(author: AuthorDocument, role?: Role) {
     super(author, role);
     this.id = author.id;
     this.name = author.name;
@@ -57,18 +56,12 @@ export class DetailedAuthorDto extends AuthorDto {
     isArray: true,
     each: true,
   })
-  books?: BookDto[];
+  books?: (string | BookDto)[];
 
-  constructor(author: Author, role?: Role) {
+  constructor(author: AuthorDocument, role?: Role) {
     super(author, role);
-  }
-
-  static async toDto(author: Author, role?: Role): Promise<DetailedAuthorDto> {
-    const detailedAuthorDto = new DetailedAuthorDto(author, role);
-    const books = await author.books;
-    if (books) {
-      detailedAuthorDto.books = books.map((book) => new BookDto(book, role));
-    }
-    return detailedAuthorDto;
+    this.books = author.books?.map((book) =>
+      book instanceof Types.ObjectId ? book.toString() : new BookDto(book, role)
+    );
   }
 }
