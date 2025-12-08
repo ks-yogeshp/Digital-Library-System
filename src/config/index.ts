@@ -2,7 +2,7 @@ import { IncomingMessage } from 'http';
 import { RequestMethod } from '@nestjs/common';
 import { AxiosError } from 'axios';
 import dotenv from 'dotenv';
-import { bool, cleanEnv, port, str } from 'envalid';
+import { bool, cleanEnv, str } from 'envalid';
 import { stdSerializers } from 'pino';
 
 import { ILogConfig } from 'src/common/log';
@@ -16,13 +16,8 @@ const env = cleanEnv(process.env, {
     choices: ['local', 'development', 'staging', 'test', 'production', 'preview', 'uat', 'unknown', 'ci'],
   }),
   APP_URL: str({ default: 'http://localhost:3000', devDefault: 'http://localhost:3000' }),
-  DATABASE_HOST: str({ default: 'localhost', devDefault: 'localhost' }),
-  DATABASE_PORT: port({ default: 5432, devDefault: 5432 }),
-  DATABASE_USERNAME: str(),
-  DATABASE_PASSWORD: str(),
-  DATABASE_NAME: str(),
-  DATABASE_SYNC: bool({ default: false, devDefault: false }),
-  DATABASE_AUTOLOAD: bool({ default: false, devDefault: false }),
+
+  DATABASE_MONGO_URL: str(),
 
   MAIL_HOST: str(),
   SMTP_USERNAME: str(),
