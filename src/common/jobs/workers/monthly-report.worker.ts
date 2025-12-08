@@ -1,44 +1,41 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { endOfMonth, startOfMonth, subMonths } from 'date-fns';
 import * as ExcelJS from 'exceljs';
 import Redis from 'ioredis';
-import { Between, DataSource } from 'typeorm';
 
-import { CONFIG } from 'src/config';
-import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
-import { Role } from 'src/database/entities/enums/role.enum';
-import { User } from 'src/database/entities/user.entity';
+import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
+import { BookDocument } from 'src/database/schemas/book.schema';
+import { Role } from 'src/database/schemas/enums/role.enum';
+import { UserDocument } from 'src/database/schemas/user.schema';
 
 @Processor('monthly-reports')
 export class MonthlyReportWorker extends WorkerHost {
-  private readonly redis: Redis;
   constructor(
-    private readonly dataSource: DataSource,
-    @InjectQueue('mail-queue') private mailQueue: Queue
+    @InjectQueue('mail-queue') private mailQueue: Queue,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    private readonly borrowRecordRepository: BorrowRecordRepository
   ) {
     super();
-    this.redis = new Redis(CONFIG.REDIS_URL);
   }
 
   async process(job: Job) {
     Logger.log('Processing job: ' + job.name);
     const startOfLastMonth = startOfMonth(subMonths(new Date(), 1));
     const endOfLastMonth = endOfMonth(subMonths(new Date(), 1));
-    const records = await this.dataSource.getRepository(BorrowRecord).find({
-      where: {
-        borrowDate: Between(startOfLastMonth, endOfLastMonth),
-      },
-      relations: {
-        user: true,
-        book: true,
-      },
-      withDeleted: true,
-      order: {
-        borrowDate: 'ASC',
-      },
-    });
+    // with deleted
+    const records = await this.borrowRecordRepository
+      .query()
+      .find({
+        borrowDate: {
+          $gte: startOfLastMonth,
+          $lte: endOfLastMonth,
+        },
+      })
+      .populate(['user', 'book'])
+      .sort({ borrowDate: 1 })
+      .exec();
     if (records.length <= 0) {
       Logger.log('No borrow records for last month, skipping report.');
       return;
@@ -56,8 +53,8 @@ export class MonthlyReportWorker extends WorkerHost {
       { header: 'Status', key: 'status', width: 15 },
     ];
     for (const record of records) {
-      const user = await record.user;
-      const book = await record.book;
+      const user = record.user as UserDocument;
+      const book = record.book as BookDocument;
       const userDeleted = user.deletedAt ? ' (Deleted)' : '';
       const bookDeleted = book.deletedAt ? ' (Deleted)' : '';
       sheet.addRow([
@@ -72,10 +69,8 @@ export class MonthlyReportWorker extends WorkerHost {
       ]);
     }
     const buffer = await workbook.xlsx.writeBuffer();
-    const admins = await this.dataSource.getRepository(User).find({
-      where: {
-        role: Role.ADMIN,
-      },
+    const admins: UserDocument[] = await this.borrowRecordRepository.query().find({
+      role: Role.ADMIN,
     });
     for (const admin of admins) {
       await this.mailQueue.add(

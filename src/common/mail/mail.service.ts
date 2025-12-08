@@ -1,26 +1,34 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection, Types } from 'mongoose';
 
 import { CONFIG } from 'src/config';
-import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
-import { ReservationRequest } from 'src/database/entities/reservation-request.entity';
+import { BookDocument } from 'src/database/schemas/book.schema';
+import { BorrowRecordDocument } from 'src/database/schemas/borrow-record.schema';
+import { ReservationRequestDocument } from 'src/database/schemas/reservation-request.schema';
+import { UserDocument } from 'src/database/schemas/user.schema';
 
 @Injectable()
 export class MailService {
   constructor(
     private readonly mailerService: MailerService,
-    private readonly dataSource: DataSource
+    @InjectConnection()
+    private readonly connection: Connection
   ) {}
 
-  public async sendRemainder(data: { id: number; daysDiff: number }) {
+  public async sendRemainder(data: { id: string; daysDiff: number }) {
     const { id, daysDiff } = data;
-    const borrowRecord = await this.dataSource.getRepository(BorrowRecord).findOneOrFail({
-      where: { id },
-    });
+    const borrowRecordModel = this.connection.model<BorrowRecordDocument>('BorrowRecord');
+
+    const borrowRecord = await borrowRecordModel
+      .findById(new Types.ObjectId(id))
+      .populate(['book', 'user'])
+      .exec();
+    if (!borrowRecord) throw new Error(`BorrowRecord with id ${id} not found`);
     const isOverdue = daysDiff < 0;
-    const book = await borrowRecord.book;
-    const user = await borrowRecord.user;
+    const book = borrowRecord.book as BookDocument;
+    const user = borrowRecord.user as UserDocument;
     const subject = isOverdue ? `Overdue Notice: "${book.name}"` : `Reminder: "${book.name}" is due today`;
     try {
       await this.mailerService.sendMail({
@@ -42,13 +50,17 @@ export class MailService {
     }
   }
 
-  public async sendReservationApproved(data: { id: number }) {
+  public async sendReservationApproved(data: { id: string }) {
     const { id } = data;
-    const reservation = await this.dataSource.getRepository(ReservationRequest).findOneOrFail({
-      where: { id },
-    });
-    const book = await reservation.book;
-    const user = await reservation.user;
+    const reservationModel = this.connection.model<ReservationRequestDocument>('ReservationRequest');
+
+    const reservation = await reservationModel
+      .findById(new Types.ObjectId(id))
+      .populate(['book', 'user'])
+      .exec();
+    if (!reservation) throw new Error(`ReservationRequest with id ${id} not found`);
+    const book = reservation.book as BookDocument;
+    const user = reservation.user as UserDocument;
 
     const subject = `Your reservation for "${book.name}" is approved!`;
     try {

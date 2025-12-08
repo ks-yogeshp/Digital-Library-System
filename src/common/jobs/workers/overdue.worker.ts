@@ -1,20 +1,21 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
 import Redis from 'ioredis';
-import { DataSource, In, IsNull } from 'typeorm';
 
-import { CONFIG } from 'src/config';
-import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
-import { BookStatus } from 'src/database/entities/enums/book-status.enum';
+import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
+import { BookDocument } from 'src/database/schemas/book.schema';
+import { BookStatus } from 'src/database/schemas/enums/book-status.enum';
+import { UserDocument } from 'src/database/schemas/user.schema';
 
 @Processor('overdue-check')
 export class OverdueWorker extends WorkerHost {
-  private readonly redis: Redis;
-  constructor(private readonly dataSource: DataSource) {
+  constructor(
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    private readonly borrowRecordRepository: BorrowRecordRepository
+  ) {
     super();
-    this.redis = new Redis(CONFIG.REDIS_URL);
   }
 
   private readonly penalty = 10;
@@ -22,21 +23,18 @@ export class OverdueWorker extends WorkerHost {
     Logger.log('Processing job: ' + job.name);
 
     const today = startOfDay(new Date());
-
-    const records = await this.dataSource.getRepository(BorrowRecord).find({
-      where: {
-        returnDate: IsNull(),
-        bookStatus: In([BookStatus.OVERDUE, BookStatus.BORROWED]),
-      },
-      relations: {
-        user: true,
-        book: true,
-      },
-    });
+    const records = await this.borrowRecordRepository
+      .query()
+      .find({
+        returnDate: null,
+        bookStatus: { $in: [BookStatus.OVERDUE, BookStatus.BORROWED] },
+      })
+      .populate(['user', 'book'])
+      .exec();
     for (const record of records) {
       const dueDate = startOfDay(new Date(record.dueDate));
-      const book = await record.book;
-      const user = await record.user;
+      const book = record.book as BookDocument;
+      const user = record.user as UserDocument;
       if (!book) continue;
       if (!user) continue;
       if (dueDate <= today) {
@@ -44,7 +42,7 @@ export class OverdueWorker extends WorkerHost {
         if (overdueDays > 0) {
           if (record.bookStatus !== BookStatus.OVERDUE) record.bookStatus = BookStatus.OVERDUE;
           record.penalty = overdueDays * this.penalty;
-          await this.dataSource.getRepository(BorrowRecord).save(record);
+          await record.save();
           Logger.log(`Penalty updated: ${user.firstName} owes $${record.penalty} for "${book.name}"`);
         }
       }

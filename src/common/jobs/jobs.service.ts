@@ -1,22 +1,18 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import cronParser from 'cron-parser';
 import Redis from 'ioredis';
 
-import { CONFIG } from 'src/config';
-
 @Injectable()
 export class JobsService implements OnModuleInit {
-  private readonly redis: Redis;
   constructor(
     @InjectQueue('overdue-check') private overdueQueue: Queue,
     @InjectQueue('send-reminders') private remindersQueue: Queue,
     @InjectQueue('expired-reservations') private expiredQueue: Queue,
-    @InjectQueue('monthly-reports') private monthlyReportsQueue: Queue
-  ) {
-    this.redis = new Redis(CONFIG.REDIS_URL);
-  }
+    @InjectQueue('monthly-reports') private monthlyReportsQueue: Queue,
+    @Inject('REDIS_CLIENT') private redis: Redis
+  ) {}
 
   private jobSchedules = [
     { queue: 'overdue-check', pattern: '0 0 * * *', jobId: 'overdue-check' },
