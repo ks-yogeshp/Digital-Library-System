@@ -1,14 +1,16 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { add, startOfDay } from 'date-fns';
-import { Any, DataSource, EntityManager, MoreThan } from 'typeorm';
+import { add, addDays, startOfDay } from 'date-fns';
+import mongoose, { ClientSession, Types } from 'mongoose';
 
-import { Book } from 'src/database/entities/book.entity';
-import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
-import { AvailabilityStatus } from 'src/database/entities/enums/availibity-status.enum';
+import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
 import { ReservationRequestRepository } from 'src/database/repositories/reservation-request.repository';
-import { RequestStatus } from '../../database/entities/enums/request-status.enum';
+import { BookDocument } from 'src/database/schemas/book.schema';
+import { BorrowRecord, BorrowRecordDocument } from 'src/database/schemas/borrow-record.schema';
+import { AvailabilityStatus } from 'src/database/schemas/enums/availibity-status.enum';
+import { ReservationRequestDocument } from 'src/database/schemas/reservation-request.schema';
+import { RequestStatus } from '../../database/schemas/enums/request-status.enum';
 import { CheckoutReservationRequestDto } from '../dto/checkout-reservation-request.dto';
 
 @Injectable()
@@ -16,34 +18,27 @@ export class ReservationRequestService {
   constructor(
     private readonly reservationRequestRepository: ReservationRequestRepository,
 
-    private readonly dataSource: DataSource,
+    private readonly borrowRecordRepository: BorrowRecordRepository,
 
     @InjectQueue('mail-queue') private mailQueue: Queue
   ) {}
 
   public async get() {
-    return await this.reservationRequestRepository.find();
+    return await this.reservationRequestRepository.query().find();
   }
 
-  public async nextReservation(book: Book, manager: EntityManager) {
-    const nextReservation = await this.reservationRequestRepository.findOne({
-      where: {
-        book: {
-          id: book.id,
-        },
+  public async nextReservation(book: BookDocument, session: ClientSession) {
+    const nextReservation = await this.reservationRequestRepository
+      .query()
+      .findOne({
+        bookId: book._id,
         requestStatus: RequestStatus.PENDING,
-      },
-      order: {
-        requestDate: 'ASC',
-      },
-      relations: {
-        user: true,
-        book: true,
-      },
-    });
+      })
+      .sort({ requestDate: 1 })
+      .populate('user', 'book')
+      .exec();
     if (nextReservation) {
-      const activeUntil = new Date();
-      activeUntil.setDate(activeUntil.getDate() + 1);
+      const activeUntil = addDays(new Date(), 1);
 
       nextReservation.requestStatus = RequestStatus.APPROVED;
       nextReservation.active_until = activeUntil;
@@ -60,70 +55,72 @@ export class ReservationRequestService {
           removeOnFail: true,
         }
       );
-      await manager.save(nextReservation);
+      await nextReservation.save({ session });
     } else {
       book.availabilityStatus = AvailabilityStatus.AVAILABLE;
-      await manager.save(book);
+      await book.save({ session });
     }
   }
 
-  public async checkoutBook(id: number, checkoutReservationRequestDto: CheckoutReservationRequestDto) {
+  public async checkoutBook(id: string, checkoutReservationRequestDto: CheckoutReservationRequestDto) {
     const now = new Date();
-    const reservation = await this.reservationRequestRepository.findOne({
-      where: {
-        id: id,
+    const reservation = await this.reservationRequestRepository
+      .query()
+      .findOne({
+        _id: new Types.ObjectId(id),
         requestStatus: RequestStatus.APPROVED,
-        active_until: MoreThan(now),
-      },
-      relations: {
-        user: true,
-        book: true,
-      },
-    });
+        active_until: { $gt: now },
+      })
+      .populate(['user', 'book'])
+      .exec();
     if (!reservation) {
       throw new BadRequestException('Reservation not found');
     }
 
     const newRecord = new BorrowRecord();
-    newRecord.bookId = reservation.bookId;
-    newRecord.userId = reservation.userId;
+    newRecord.book = reservation.book;
+    newRecord.user = reservation.user;
     newRecord.borrowDate = startOfDay(now);
     newRecord.dueDate = add(now, { days: checkoutReservationRequestDto.days });
-
-    await this.dataSource.transaction(async (manager) => {
-      await manager.save(newRecord);
-      reservation.requestStatus = RequestStatus.FULFILLED;
-      await manager.save(reservation);
-    });
-    const record = await this.dataSource.getRepository(BorrowRecord).findOne({
-      where: { id: newRecord.id },
-    });
-    if (!record) throw new NotFoundException('BorrowRecord not Found');
-    return record;
+    const session = await mongoose.startSession();
+    let saved: BorrowRecordDocument;
+    try {
+      saved = await session.withTransaction(async () => {
+        await reservation.save({ session });
+        return await this.borrowRecordRepository.query().insertOne(newRecord, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    return saved;
   }
 
-  public async cancelResrvation(id: number) {
-    const reservation = await this.reservationRequestRepository.findOne({
-      where: {
-        id: id,
-        requestStatus: Any[(RequestStatus.APPROVED, RequestStatus.PENDING)],
-      },
-      relations: {
-        user: true,
-        book: true,
-      },
-    });
+  public async cancelResrvation(id: string) {
+    const reservation = await this.reservationRequestRepository
+      .query()
+      .findOne({
+        _id: new Types.ObjectId(id),
+        requestStatus: { $in: [RequestStatus.APPROVED, RequestStatus.PENDING] },
+      })
+      .populate(['user', 'book'])
+      .exec();
     if (!reservation) {
       throw new BadRequestException();
     }
-    await this.dataSource.transaction(async (manager) => {
-      if (reservation.requestStatus === RequestStatus.APPROVED) {
-        await this.nextReservation(await reservation.book, manager);
-      }
-      reservation.requestStatus = RequestStatus.CANCELLED;
-      await manager.save(reservation);
-    });
+    let updatedReservation: ReservationRequestDocument;
+    const session = await mongoose.startSession();
+    try {
+      updatedReservation = await session.withTransaction(async () => {
+        if (reservation.requestStatus === RequestStatus.APPROVED) {
+          await this.nextReservation(reservation.book as BookDocument, session);
+        }
+        reservation.requestStatus = RequestStatus.CANCELLED;
+        return await reservation.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
 
-    return reservation;
+    return updatedReservation;
   }
 }

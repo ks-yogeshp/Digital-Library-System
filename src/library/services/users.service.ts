@@ -1,54 +1,46 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Types } from 'mongoose';
 
+import { MyEntityMap } from 'src/app.types';
 import { QueryDto } from 'src/common/dtos/query.dto';
 import { QueryService } from 'src/common/query/query.service';
-import { User } from 'src/database/entities/user.entity';
 import { UserRepository } from 'src/database/repositories/user.repository';
+import { User } from 'src/database/schemas/user.schema';
 import { CreateUserDto, UpdateUserDto } from '../dto/user.dto';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
   constructor(
+    // private readonly userRepository: UserRepository,
     private readonly userRepository: UserRepository,
 
     private readonly queryProvider: QueryService
   ) {}
 
   public async getAllUsers(queryDto: QueryDto) {
-    let users;
-    try {
-      users = await this.queryProvider.query({
-        query: queryDto,
-        repository: this.userRepository,
-      });
-    } catch (error) {
-      Logger.error({ msg: 'Error fetching users', error: error.message, stack: error.stack });
-      throw error;
-    }
-    return users;
-  }
-
-  public async getUserById(id: number) {
-    const user = await this.userRepository.findOne({
-      where: {
-        id: id,
-      },
-      relations: {
-        borrowingHistory: true,
-        reservationHistory: true,
+    return this.queryProvider.query<User, MyEntityMap>({
+      query: queryDto,
+      model: this.userRepository.query(),
+      searchFieldMap: {
+        User: ['firstName', 'lastName', 'email'],
       },
     });
+  }
+
+  public async getUserById(id: Types.ObjectId) {
+    const user = await this.userRepository
+      .query()
+      .findById(id)
+      .populate(['borrowHistory', 'reservationHistory'])
+      .exec();
     if (!user) throw new NotFoundException('User not Found');
 
     return user;
   }
 
   public async createUser(createUserDto: CreateUserDto) {
-    const existingUser = await this.userRepository.findOneBy({
-      email: createUserDto.email,
-    });
-
+    const existingUser = await this.userRepository.query().findOne({ email: createUserDto.email });
     if (existingUser) throw new BadRequestException('User already exists with this email');
 
     const newUser = new User();
@@ -58,28 +50,25 @@ export class UsersService {
     newUser.password = createUserDto.password;
     newUser.role = createUserDto.role;
 
-    await this.userRepository.save(newUser);
-    return newUser;
+    return this.userRepository.query().insertOne(newUser);
   }
 
-  public async updateUser(id: number, updateUserDto: UpdateUserDto) {
-    const existingUser = await this.userRepository.findOneBy({
-      id: id,
-    });
+  public async updateUser(id: Types.ObjectId, updateUserDto: UpdateUserDto) {
+    const existingUser = await this.userRepository.query().findById(id);
 
     if (!existingUser) throw new NotFoundException('User does not exist with this Id');
 
     existingUser.firstName = updateUserDto.firstName ?? existingUser.firstName;
     existingUser.lastName = updateUserDto.lastName ?? existingUser.lastName;
 
-    await this.userRepository.save(existingUser);
-    return existingUser;
+    return await existingUser.save();
   }
 
-  public async deleteUser(id: number) {
-    const result = await this.userRepository.softDelete(id);
+  public async deleteUser(id: Types.ObjectId) {
+    const userToDelete = await this.userRepository.query().findById(id);
 
-    if (result.affected === 0) throw new NotFoundException('User does not exist with this Id');
+    if (!userToDelete) throw new NotFoundException('User does not exist with this Id');
+    await this.userRepository.softDeleteById(id);
 
     return { message: 'User deleted successfully' };
   }

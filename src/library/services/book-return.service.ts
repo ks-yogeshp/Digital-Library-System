@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Any, DataSource } from 'typeorm';
+import mongoose, { Types } from 'mongoose';
 
 import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
-import { BookStatus } from 'src/database/entities/enums/book-status.enum';
 import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
+import { BookDocument } from 'src/database/schemas/book.schema';
+import { BorrowRecordDocument } from 'src/database/schemas/borrow-record.schema';
+import { BookStatus } from 'src/database/schemas/enums/book-status.enum';
 import { ReservationRequestService } from 'src/library/services/reservation-request.service';
 
 @Injectable()
@@ -11,41 +13,38 @@ export class BookReturnService {
   constructor(
     private readonly borrowRecordRepository: BorrowRecordRepository,
 
-    private readonly reservationRequestSerivce: ReservationRequestService,
-
-    private readonly dataSource: DataSource
+    private readonly reservationRequestSerivce: ReservationRequestService
   ) {}
 
-  public async bookReturn(id: number, user: IActiveUser) {
-    const record = await this.borrowRecordRepository.findOne({
-      where: {
-        book: {
-          id: id,
-        },
-        user: {
-          id: user.sub,
-        },
-        bookStatus: Any([BookStatus.BORROWED, BookStatus.OVERDUE]),
-      },
-      relations: {
-        book: true,
-        user: true,
-      },
-    });
+  public async bookReturn(id: string, user: IActiveUser) {
+    const record = await this.borrowRecordRepository
+      .query()
+      .findOne({
+        bookId: new Types.ObjectId(id),
+        userId: user.sub,
+        bookStatus: { $in: [BookStatus.BORROWED, BookStatus.OVERDUE] },
+      })
+      .populate(['book', 'user'])
+      .exec();
+
     if (!record) {
       throw new BadRequestException('No borrow record found for this user and book');
     } else {
       const returnDate = new Date();
-
       record.returnDate = returnDate;
       record.bookStatus = BookStatus.RETURNED;
       record.penaltyPaid = true;
-      await this.dataSource.transaction(async (manager) => {
-        await this.reservationRequestSerivce.nextReservation(await record.book, manager);
-        await manager.save(record);
-      });
-
-      return record;
+      let returnDoc: BorrowRecordDocument;
+      const session = await mongoose.startSession();
+      try {
+        returnDoc = await session.withTransaction(async () => {
+          await this.reservationRequestSerivce.nextReservation(record.book as BookDocument, session);
+          return await record.save({ session });
+        });
+      } finally {
+        await session.endSession();
+      }
+      return returnDoc;
     }
   }
 }

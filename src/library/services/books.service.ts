@@ -1,14 +1,13 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DataSource, In } from 'typeorm';
+import mongoose, { Types } from 'mongoose';
 
 import { MyEntityMap } from 'src/app.types';
 import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { QueryDto } from 'src/common/dtos/query.dto';
 import { QueryService } from 'src/common/query/query.service';
-import { BorrowRecord } from 'src/database/entities/borrow-record.entity';
 import { AuthorRepository } from 'src/database/repositories/author.repository';
 import { BookRepository } from 'src/database/repositories/book.repository';
-import { Book } from '../../database/entities/book.entity';
+import { Book, BookDocument } from 'src/database/schemas/book.schema';
 import { CreateBookDto, UpdateBookDto } from '../dto/book.dto';
 import { CheckoutDto } from '../dto/checkout.dto';
 import { ExtendDto } from '../dto/extend.dto';
@@ -32,65 +31,48 @@ export class BooksService {
 
     private readonly bookExtendService: BookExtendService,
 
-    private readonly bookReserveService: BookReserveService,
-
-    private readonly dataSource: DataSource
+    private readonly bookReserveService: BookReserveService
   ) {}
 
   public async getAllBooks(queryDto: QueryDto) {
     try {
-      return await this.queryProvider.query<Book, MyEntityMap>({
+      const res = await this.queryProvider.query<Book, MyEntityMap>({
         query: queryDto,
-        repository: this.bookRepository,
+        model: this.bookRepository.query(),
+        relations: ['authors'],
         searchFieldMap: {
-          Book: ['ISBN', 'name', 'authors'],
-          Author: ['name'],
+          Book: ['ISBN', 'name', 'category', 'authors'],
+          Author: ['name', 'email'],
         },
-        partial: {
-          search: true,
-        },
-        relations: {
-          authors: true,
-        },
+        searchOptions: 'partial',
       });
+      return res;
     } catch (error) {
       Logger.error({ msg: 'Error fetching books', error: error.message, stack: error.stack });
       throw error;
     }
   }
 
-  public async getBookById(id: number): Promise<Book> {
-    const book = await this.bookRepository.findOne({
-      where: {
-        id: id,
-      },
-      relations: {
-        authors: true,
-        borrowingHistory: true,
-        reservationHistory: true,
-      },
-    });
-
+  public async getBookById(id: string) {
+    const book = await this.bookRepository
+      .query()
+      .findById(new Types.ObjectId(id))
+      .populate(['authors', 'borrowingHistory', 'reservationHistory']);
     if (!book) throw new NotFoundException('Book not Found');
 
     return book;
   }
 
   public async createBook(user: IActiveUser, createBookDto: CreateBookDto) {
-    const existingBook = await this.bookRepository.findOneBy({
-      ISBN: createBookDto.ISBN,
-    });
-
+    const existingBook = await this.bookRepository.query().findOne({ ISBN: createBookDto.ISBN });
     if (existingBook) throw new BadRequestException('Book already exists with this ISBN number');
     if (!Array.isArray(createBookDto.authorIds) || createBookDto.authorIds.length === 0) {
       throw new BadRequestException('authorsIds must be a non-empty array');
     }
-    const authors = await this.authorRepository.find({
-      where: {
-        id: In(createBookDto.authorIds),
-      },
-    });
 
+    const authors = await this.authorRepository.query().find({
+      id: { $in: createBookDto.authorIds.map((id) => new Types.ObjectId(id)) },
+    });
     if (authors.length !== createBookDto.authorIds.length)
       throw new NotFoundException('One or more authors were not found.');
     const newBook = new Book();
@@ -100,109 +82,106 @@ export class BooksService {
     newBook.version = createBookDto.version;
     newBook.yearOfPublication = createBookDto.yearOfPublication;
     newBook.createdBy = user.sub;
-    // newBook.authors = Promise.resolve([...authors]);
-    await this.dataSource.transaction(async (manager) => {
-      const savedBook = await manager.getRepository(Book).save(newBook);
-      await manager
-        .getRepository(Book)
-        .createQueryBuilder()
-        .relation(Book, 'authors')
-        .of(savedBook)
-        .add(authors);
-    });
-    const book = await this.bookRepository.findOne({
-      where: { id: newBook.id },
-      relations: { authors: true, borrowingHistory: true, reservationHistory: true },
-    });
-    if (!book) throw new NotFoundException('Book not found');
-    return book;
+    newBook.authors = authors;
+    let savedBook: BookDocument;
+    const session = await mongoose.startSession();
+    try {
+      savedBook = await session.withTransaction(async () => {
+        const book = await this.bookRepository.query().insertOne(newBook, { session });
+        for (const author of authors) {
+          await this.authorRepository
+            .query()
+            .updateOne({ _id: author._id }, { $push: { books: savedBook._id } }, { session });
+        }
+        return book;
+      });
+    } finally {
+      await session.endSession();
+    }
+    return savedBook;
   }
 
-  public async updateBook(id: number, user: IActiveUser, updateBookDto: UpdateBookDto) {
-    const existingBook = await this.bookRepository.findOneBy({
-      id: id,
-    });
+  public async updateBook(id: string, user: IActiveUser, updateBookDto: UpdateBookDto) {
+    const existingBook = await this.bookRepository.query().findById(id);
 
     if (!existingBook) throw new NotFoundException('Book does not exist with this Id');
 
-    const authors = await this.authorRepository.find({
-      where: {
-        id: In(updateBookDto.authorsIds),
-      },
+    const newAuthors = await this.authorRepository.query().find({
+      id: { $in: updateBookDto.authorIds.map((id) => new Types.ObjectId(id)) },
     });
 
-    if (authors.length !== updateBookDto.authorsIds.length)
+    if (newAuthors.length !== updateBookDto.authorIds.length)
       throw new NotFoundException('One or more authors were not found.');
 
     existingBook.name = updateBookDto.name ?? existingBook.name;
     existingBook.yearOfPublication = updateBookDto.yearOfPublication ?? existingBook.yearOfPublication;
     existingBook.category = updateBookDto.category ?? existingBook.category;
     existingBook.version = updateBookDto.version ?? existingBook.version;
-    existingBook.updatedBy = user.sub;
-    // existingBook.authors = updateBookDto.authorsIds ? Promise.resolve(authors) : existingBook.authors;
-    await this.dataSource.transaction(async (manager) => {
-      await manager.getRepository(Book).save(existingBook);
-      if (updateBookDto.authorsIds) {
-        await manager
-          .getRepository(Book)
-          .createQueryBuilder()
-          .relation(Book, 'authors')
-          .of(existingBook)
-          .remove(await existingBook.authors);
-        await manager
-          .getRepository(Book)
-          .createQueryBuilder()
-          .relation(Book, 'authors')
-          .of(existingBook)
-          .add(authors);
-      }
-    });
-
-    const book = await this.bookRepository.findOne({
-      where: { id: existingBook.id },
-      relations: { authors: true },
-    });
-    if (!book) throw new NotFoundException('Book not found');
-    return book;
+    // existingBook.updatedBy = user.sub;
+    // existingBook.authors = updateBookDto.authorIds ? authors : existingBook.authors;
+    const newAuthorsId = newAuthors.map((author) => author._id);
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (updateBookDto.authorIds) {
+          if (existingBook.authors) {
+            for (const author of existingBook.authors as Types.ObjectId[]) {
+              if (!newAuthorsId.includes(author)) {
+                await this.authorRepository
+                  .query()
+                  .updateOne({ _id: author }, { $pull: { books: existingBook._id } }, { session });
+              }
+            }
+            for (const authorId of newAuthorsId) {
+              if (!(existingBook.authors as Types.ObjectId[]).includes(authorId)) {
+                await this.authorRepository
+                  .query()
+                  .updateOne({ _id: authorId }, { $push: { books: existingBook._id } }, { session });
+              }
+            }
+          } else {
+            for (const authorId of newAuthorsId) {
+              await this.authorRepository
+                .query()
+                .updateOne({ _id: authorId }, { $push: { books: existingBook._id } }, { session });
+            }
+          }
+          existingBook.authors = newAuthors;
+          await existingBook.save({ session });
+        } else {
+          await existingBook.save({ session });
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
+    return existingBook;
   }
 
-  public async deleteBook(id: number, user: IActiveUser) {
-    const book = await this.bookRepository.findOneBy({ id });
+  public async deleteBook(id: string, user: IActiveUser) {
+    const bookToDelete = await this.bookRepository.query().findById(id);
 
-    if (!book) throw new NotFoundException('Book does not exist with this Id');
+    if (!bookToDelete) throw new NotFoundException('Book does not exist with this Id');
 
-    book.deletedBy = user.sub;
-    await this.bookRepository.save(book);
-
-    await this.bookRepository.softDelete(id);
+    // book.deletedBy = user.sub;
+    await this.bookRepository.softDeleteById(id, user.sub);
 
     return { message: 'Book deleted successfully' };
   }
 
-  public async bookCheckout(id: number, user: IActiveUser, checkoutDto: CheckoutDto) {
-    const record = await this.bookCheckoutService.checkout(id, user, checkoutDto);
-    return this.getRecord(record.id);
+  public async bookCheckout(id: string, user: IActiveUser, checkoutDto: CheckoutDto) {
+    return await this.bookCheckoutService.checkout(id, user, checkoutDto);
   }
 
-  public async bookReturn(id: number, user: IActiveUser) {
-    const record = await this.bookReturnService.bookReturn(id, user);
-    return this.getRecord(record.id);
+  public async bookReturn(id: string, user: IActiveUser) {
+    return await this.bookReturnService.bookReturn(id, user);
   }
 
-  public async extendBook(id: number, user: IActiveUser, extendDto: ExtendDto) {
-    const record = await this.bookExtendService.extendBook(id, user, extendDto);
-    return this.getRecord(record.id);
+  public async extendBook(id: string, user: IActiveUser, extendDto: ExtendDto) {
+    return await this.bookExtendService.extendBook(id, user, extendDto);
   }
 
-  public async createReservation(id: number, user: IActiveUser) {
+  public async createReservation(id: string, user: IActiveUser) {
     return this.bookReserveService.createReservation(id, user);
-  }
-
-  async getRecord(id: number) {
-    const record = await this.dataSource.getRepository(BorrowRecord).findOne({
-      where: { id },
-    });
-    if (!record) throw new NotFoundException('BorrowRecord not Found');
-    return record;
   }
 }
