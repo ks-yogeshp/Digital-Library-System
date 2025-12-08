@@ -1,15 +1,15 @@
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { getModelToken, MongooseModule } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 import { CONFIG } from 'src/config';
 import { MongoRepositoryMetadata } from './decorators/repository.decorator';
-import { AuthorMongoRepository } from './repositories/author-mongo.repository';
-import { BookMongoRepository } from './repositories/book-mongo.repository';
-import { BorrowRecordMongoRepository } from './repositories/borrow-record-mongo.repository';
-import { ReservationRequestMongoRepository } from './repositories/reservation-request-mongo.repository';
-import { UserMongoRepository } from './repositories/user-mongo.repository';
-import { Model } from 'mongoose';
-import { ImageMetadataMongoRepository } from './repositories/image-metadata-mongo.repository';
+import { AuthorRepository } from './repositories/author.repository';
+import { BookRepository } from './repositories/book.repository';
+import { BorrowRecordRepository } from './repositories/borrow-record.repository';
+import { ImageMetadataRepository } from './repositories/image-metadata.repository';
+import { ReservationRequestRepository } from './repositories/reservation-request.repository';
+import { UserRepository } from './repositories/user.repository';
 
 @Module({
   imports: [MongooseModule.forRoot(CONFIG.DATABASE_MONGO_URL)],
@@ -18,12 +18,12 @@ import { ImageMetadataMongoRepository } from './repositories/image-metadata-mong
 export class DatabaseModule {
   static forRoot(): DynamicModule {
     const repositories = [
-      AuthorMongoRepository,
-      BookMongoRepository,
-      UserMongoRepository,
-      BorrowRecordMongoRepository,
-      ReservationRequestMongoRepository,
-      ImageMetadataMongoRepository
+      AuthorRepository,
+      BookRepository,
+      UserRepository,
+      BorrowRecordRepository,
+      ReservationRequestRepository,
+      ImageMetadataRepository,
     ];
     const schemas = repositories.map((repo) => {
       const metadata = Reflect.getMetadata('MONGO_REPO', repo);
