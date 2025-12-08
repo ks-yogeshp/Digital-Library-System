@@ -1,7 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import { InjectConnection } from '@nestjs/mongoose';
 import { Job } from 'bullmq';
-import mongoose from 'mongoose';
+import { Connection } from 'mongoose';
 
 import { ReservationRequestRepository } from 'src/database/repositories/reservation-request.repository';
 import { BookDocument } from 'src/database/schemas/book.schema';
@@ -12,7 +13,9 @@ import { ReservationRequestService } from 'src/library/services/reservation-requ
 export class ExpiredReservationWorker extends WorkerHost {
   constructor(
     private readonly reservationRequestRepository: ReservationRequestRepository,
-    private readonly reservationRequestService: ReservationRequestService
+    private readonly reservationRequestService: ReservationRequestService,
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {
     super();
   }
@@ -36,7 +39,7 @@ export class ExpiredReservationWorker extends WorkerHost {
       Logger.log(`Active period expired for reservation ${reservation.id}, checking next reservation...`);
 
       reservation.requestStatus = RequestStatus.EXPIRE;
-      const session = await mongoose.startSession();
+      const session = await this.connection.startSession();
       try {
         await session.withTransaction(async () => {
           await this.reservationRequestService.nextReservation(book as BookDocument, session);

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import mongoose, { Types } from 'mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection, Types } from 'mongoose';
 
 import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { BorrowRecordRepository } from 'src/database/repositories/borrow-record.repository';
@@ -13,7 +14,10 @@ export class BookReturnService {
   constructor(
     private readonly borrowRecordRepository: BorrowRecordRepository,
 
-    private readonly reservationRequestSerivce: ReservationRequestService
+    private readonly reservationRequestSerivce: ReservationRequestService,
+
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {}
 
   public async bookReturn(id: string, user: IActiveUser) {
@@ -35,7 +39,7 @@ export class BookReturnService {
       record.bookStatus = BookStatus.RETURNED;
       record.penaltyPaid = true;
       let returnDoc: BorrowRecordDocument;
-      const session = await mongoose.startSession();
+      const session = await this.connection.startSession();
       try {
         returnDoc = await session.withTransaction(async () => {
           await this.reservationRequestSerivce.nextReservation(record.book as BookDocument, session);

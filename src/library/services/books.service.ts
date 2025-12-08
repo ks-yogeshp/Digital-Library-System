@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import mongoose, { Types } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 
 import { MyEntityMap } from 'src/app.types';
 import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
@@ -15,6 +15,7 @@ import { BookCheckoutService } from './book-checkout.service';
 import { BookExtendService } from './book-extend.service';
 import { BookReserveService } from './book-reserve.service';
 import { BookReturnService } from './book-return.service';
+import { InjectConnection } from '@nestjs/mongoose';
 
 @Injectable()
 export class BooksService {
@@ -31,7 +32,10 @@ export class BooksService {
 
     private readonly bookExtendService: BookExtendService,
 
-    private readonly bookReserveService: BookReserveService
+    private readonly bookReserveService: BookReserveService,
+
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {}
 
   public async getAllBooks(queryDto: QueryDto) {
@@ -84,7 +88,7 @@ export class BooksService {
     newBook.createdBy = user.sub;
     newBook.authors = authors.map((author) => author._id);
     let savedBook: BookDocument;
-    const session = await mongoose.startSession();
+    const session = await this.connection.startSession();
     try {
       savedBook = await session.withTransaction(async () => {
         const book = await this.bookRepository.query().insertOne(newBook, { session });
@@ -120,7 +124,7 @@ export class BooksService {
     existingBook.updatedBy = user.sub;
     // existingBook.authors = updateBookDto.authorIds ? authors : existingBook.authors;
     const newAuthorsId = newAuthors.map((author) => author._id);
-    const session = await mongoose.startSession();
+    const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
         if (updateBookDto.authorIds) {

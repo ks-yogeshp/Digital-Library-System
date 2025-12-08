@@ -12,7 +12,6 @@ import { CreateUserDto, UpdateUserDto } from '../dto/user.dto';
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
   constructor(
-    // private readonly userRepository: UserRepository,
     private readonly userRepository: UserRepository,
 
     private readonly queryProvider: QueryService
@@ -32,7 +31,7 @@ export class UsersService {
     const user = await this.userRepository
       .query()
       .findById(id)
-      .populate(['borrowHistory', 'reservationHistory'])
+      .populate(['borrowRecord', 'reservationRequest'])
       .exec();
     if (!user) throw new NotFoundException('User not Found');
 

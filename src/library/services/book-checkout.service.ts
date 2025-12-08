@@ -41,7 +41,6 @@ export class BookCheckoutService {
       throw new BadRequestException(`The book "${bookDetail.name}" is currently unavailable for borrowing.`);
     }
 
-    bookDetail.availabilityStatus = AvailabilityStatus.UNAVAILABLE;
     const now = startOfDay(new Date());
 
     const newRecord = new BorrowRecord();
@@ -53,12 +52,31 @@ export class BookCheckoutService {
     const session = await this.connection.startSession();
     try {
       insertedDoc = await session.withTransaction(async () => {
-        await bookDetail.save({ session });
-        return await this.borrowRecordRepository.query().insertOne(newRecord, { session });
+        const createdRecord = await this.borrowRecordRepository.query().insertOne(newRecord, { session });
+        await this.bookRepository.query().updateOne(
+          { _id: bookDetail._id },
+          { $set: { availabilityStatus: AvailabilityStatus.UNAVAILABLE }, $push: { borrowRecord: createdRecord._id } },
+          { session }
+        );
+        await this.userRepository.query().updateOne(
+          { _id: userDetail._id },
+          { $push: { borrowRecord: createdRecord._id } },
+          { session }
+        );
+        return createdRecord;
+
       });
     } finally {
       await session.endSession();
     }
-    return insertedDoc;
+    console.log('Borrow record: ', insertedDoc);
+    const populatedRecord = await this.borrowRecordRepository.query()
+    .findById(insertedDoc._id)
+    .populate('book')
+    .populate('user');
+    if (!populatedRecord) {
+      throw new BadRequestException('Error populating borrow record after creation.');
+    }
+    return populatedRecord;
   }
 }

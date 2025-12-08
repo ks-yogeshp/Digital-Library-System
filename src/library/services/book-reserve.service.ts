@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Types } from 'mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection, Types } from 'mongoose';
 
 import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { BookRepository } from 'src/database/repositories/book.repository';
@@ -9,7 +10,7 @@ import { UserRepository } from 'src/database/repositories/user.repository';
 import { AvailabilityStatus } from 'src/database/schemas/enums/availibity-status.enum';
 import { BookStatus } from 'src/database/schemas/enums/book-status.enum';
 import { RequestStatus } from 'src/database/schemas/enums/request-status.enum';
-import { ReservationRequest } from 'src/database/schemas/reservation-request.schema';
+import { ReservationRequest, ReservationRequestDocument } from 'src/database/schemas/reservation-request.schema';
 
 @Injectable()
 export class BookReserveService {
@@ -17,7 +18,9 @@ export class BookReserveService {
     private readonly borrowRepository: BorrowRecordRepository,
     private readonly reservationRepository: ReservationRequestRepository,
     private readonly bookRepository: BookRepository,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {}
 
   public async createReservation(id: string, user: IActiveUser) {
@@ -49,7 +52,33 @@ export class BookReserveService {
     const newRequst = new ReservationRequest();
     newRequst.book = bookDetail._id;
     newRequst.user = userDetail._id;
-
-    return await this.reservationRepository.query().insertOne(newRequst);
+    const session = await this.connection.startSession();
+    let insertedDoc: ReservationRequestDocument;
+    try {
+      insertedDoc = await session.withTransaction(async () => {
+        const createdReq = await this.reservationRepository.query().insertOne(newRequst, { session });
+        await this.bookRepository.query().updateOne(
+          { _id: bookDetail._id },
+          { $push: { reservationRequest: createdReq._id } },
+          { session }
+        );
+        await this.userRepository.query().updateOne(
+          { _id: userDetail._id },
+          { $push: { reservationRequest: createdReq._id } },
+          { session }
+        );
+        return createdReq;
+      });
+    } finally {
+      await session.endSession();
+    }
+    const populatedRequest = await this.reservationRepository.query()
+    .findById(insertedDoc._id)
+    .populate('book')
+    .populate('user');
+    if (!populatedRequest) {
+      throw new BadRequestException('Error populating borrow record after creation.');
+    }
+    return populatedRequest;
   }
 }
