@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { isString } from 'lodash';
-import { EntityNotFoundError } from 'typeorm';
 
 import { ApplicationException } from '../exceptions/application.exception';
 
@@ -83,7 +82,7 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
       response['errorCode'] = (error as ApplicationException<any>).errorCode;
 
       statusCode = error.getStatus();
-    } else if (error instanceof EntityNotFoundError) {
+    } else if (error instanceof NotFoundException) {
       response = {
         error: (error as any).statusCode ?? 'Not found',
         message: `${error.name} entity is not found.`,
