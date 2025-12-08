@@ -1,9 +1,14 @@
 import { applyDecorators, Injectable, SetMetadata } from '@nestjs/common';
 
-export const CUSTOM_REPOSITORY_KEY = 'custom_repository';
+export const MONGO_REPO = 'MONGO_REPO';
+export interface MongoRepositoryMetadata {
+  schemaName: string;
+  schema: any;
+}
 
-export const DatabaseRepository = (entity): ClassDecorator => {
-  const decorators = [Injectable(), SetMetadata(CUSTOM_REPOSITORY_KEY, entity)];
-
-  return applyDecorators(...decorators);
+export const MongoRepository = (schemaName: string, schema: any): ClassDecorator => {
+  return applyDecorators(
+    Injectable(),
+    SetMetadata(MONGO_REPO, { schemaName, schema } as MongoRepositoryMetadata)
+  );
 };

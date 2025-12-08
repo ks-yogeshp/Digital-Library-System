@@ -1,90 +1,53 @@
-import { join } from 'path';
 import { DynamicModule, Module, Provider } from '@nestjs/common';
-import { getDataSourceToken, TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { getModelToken, MongooseModule } from '@nestjs/mongoose';
 
 import { CONFIG } from 'src/config';
-import { CUSTOM_REPOSITORY_KEY } from './decorators/repository.decorator';
-import { AuthorRepository } from './repositories/author.repository';
-import { BookRepository } from './repositories/book.repository';
-import { BorrowRecordRepository } from './repositories/borrow-record.repository';
-import { ImageMetadataRepository } from './repositories/image-metadata.repository';
-import { ReservationRequestRepository } from './repositories/reservation-request.repository';
-import { UserRepository } from './repositories/user.repository';
-
-export const datasourceConfig = (): DataSourceOptions => ({
-  type: 'postgres',
-  entities: [join(__dirname, '../**/*.entity{.ts,.js}'), join(__dirname, '../**/*.view-entity{.ts,.js}')],
-  migrations: [join(__dirname, '/migrations/*{.ts,.js}')],
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  seeds: [join(__dirname, 'src/database/seeding/seeds/*{.ts,.js}')],
-  factories: [join(__dirname, 'src/database/seeding/factories/*{.ts,.js}')],
-  host: CONFIG.DATABASE_HOST,
-  port: CONFIG.DATABASE_PORT,
-  username: CONFIG.DATABASE_USERNAME,
-  password: CONFIG.DATABASE_PASSWORD,
-  database: CONFIG.DATABASE_NAME,
-  dropSchema: false,
-  synchronize: CONFIG.DATABASE_SYNC,
-  migrationsTableName: 'kb_migrations',
-  useUTC: true,
-});
+import { MongoRepositoryMetadata } from './decorators/repository.decorator';
+import { AuthorMongoRepository } from './repositories/author-mongo.repository';
+import { BookMongoRepository } from './repositories/book-mongo.repository';
+import { BorrowRecordMongoRepository } from './repositories/borrow-record-mongo.repository';
+import { ReservationRequestMongoRepository } from './repositories/reservation-request-mongo.repository';
+import { UserMongoRepository } from './repositories/user-mongo.repository';
+import { Model } from 'mongoose';
+import { ImageMetadataMongoRepository } from './repositories/image-metadata-mongo.repository';
 
 @Module({
-  imports: [TypeOrmModule.forRoot(datasourceConfig())],
-  exports: [TypeOrmModule],
+  imports: [MongooseModule.forRoot(CONFIG.DATABASE_MONGO_URL)],
+  exports: [MongooseModule],
 })
 export class DatabaseModule {
-  public static forRoot(): DynamicModule {
-    const repositories = DatabaseModule.getRepositoryProviders([
-      AuthorRepository,
-      BookRepository,
-      UserRepository,
-      BorrowRecordRepository,
-      ReservationRequestRepository,
-      ImageMetadataRepository,
-    ]);
+  static forRoot(): DynamicModule {
+    const repositories = [
+      AuthorMongoRepository,
+      BookMongoRepository,
+      UserMongoRepository,
+      BorrowRecordMongoRepository,
+      ReservationRequestMongoRepository,
+      ImageMetadataMongoRepository
+    ];
+    const schemas = repositories.map((repo) => {
+      const metadata = Reflect.getMetadata('MONGO_REPO', repo);
+      if (!metadata) throw new Error(`No @MongoRepository() metadata for ${repo.name}`);
+      return { name: metadata.schemaName, schema: metadata.schema };
+    });
+
+    const mongooseFeature = MongooseModule.forFeature(schemas);
+
+    const providers: Provider[] = repositories.map((repo) => {
+      const metadata: MongoRepositoryMetadata = Reflect.getMetadata('MONGO_REPO', repo);
+      type ModelType = InstanceType<typeof metadata.schema>;
+      return {
+        provide: repo,
+        inject: [getModelToken(metadata.schemaName)],
+        useFactory: (model: Model<ModelType>) => new repo(model as ModelType),
+      };
+    });
 
     return {
       module: DatabaseModule,
-      providers: repositories,
-      exports: repositories,
-    };
-  }
-
-  public static forRepository<T extends new (...args: any[]) => any>(repositories: T[]): DynamicModule {
-    const providers: Provider[] = DatabaseModule.getRepositoryProviders(repositories);
-
-    return {
-      exports: providers,
-      module: DatabaseModule,
+      imports: [mongooseFeature],
       providers,
+      exports: providers,
     };
-  }
-
-  public static getRepositoryProviders<T extends new (...args: any[]) => any>(
-    repositories: T[]
-  ): Provider<(typeof repositories)[0]>[] {
-    const providers: Provider[] = [];
-
-    for (const repository of repositories) {
-      const entity = Reflect.getMetadata(CUSTOM_REPOSITORY_KEY, repository);
-
-      if (!entity) {
-        continue;
-      }
-
-      providers.push({
-        inject: [getDataSourceToken()],
-        provide: repository,
-        useFactory: (dataSource: DataSource): typeof repository => {
-          const baseRepository = dataSource.getRepository<any>(entity);
-          return new repository(baseRepository.target, baseRepository.manager, baseRepository.queryRunner);
-        },
-      });
-    }
-
-    return providers;
   }
 }
