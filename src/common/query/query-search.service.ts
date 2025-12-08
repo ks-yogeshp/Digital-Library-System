@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, FindOperator, FindOptionsWhere, ObjectLiteral, Raw, Repository } from 'typeorm';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection, FilterQuery, Model } from 'mongoose';
+
+import { SearchOptions } from '../dtos/query.options.dto';
 
 @Injectable()
 export class QuerySearchService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(@InjectConnection() private readonly connection: Connection) {}
 
   private parseValue(value: any): any {
     if (typeof value !== 'string') return value;
@@ -20,82 +23,114 @@ export class QuerySearchService {
     return value;
   }
 
-  public searchWhere = <T extends ObjectLiteral>(
-    repo: Repository<T>,
+  public buildSearch = <T>(
     search: string,
-    partial: boolean = false,
-    searchFieldMap?: Record<string, any>,
-    visitedEntities: Set<string> = new Set()
-  ): FindOptionsWhere<T>[] => {
-    const result: FindOptionsWhere<any>[] = [];
-    const entity = repo.metadata.targetName;
+    model: Model<T>,
+    searchFieldMap,
+    options: SearchOptions = 'partial',
+    visitedModels: Set<string> = new Set(),
+    parentPath: string = ''
+  ): FilterQuery<T> => {
+    if (!search) return {};
 
-    if (visitedEntities.has(entity)) {
-      return [];
+    const schemaName = model.modelName;
+    console.log('buildSearchNew schemaName', schemaName);
+
+    // Prevent infinite recursion in cyclic schemas
+    if (visitedModels.has(schemaName)) return {};
+    visitedModels.add(schemaName);
+
+    const fields = searchFieldMap[schemaName];
+    if (!fields || fields.length === 0) return {};
+
+    const schemaPaths = model.schema.paths;
+
+    // -----------------------------
+    // 1. Build regex or direct value
+    // -----------------------------
+    const makeValue = () => {
+      switch (options) {
+        case 'startsWith':
+          return { $regex: new RegExp('^' + escapeRegex(search), 'i') };
+        case 'endsWith':
+          return { $regex: new RegExp(escapeRegex(search) + '$', 'i') };
+        case 'exact':
+          return search;
+        case 'fulltext':
+          return { $text: { $search: search } };
+        case 'partial':
+        default:
+          return { $regex: new RegExp(escapeRegex(search), 'i') };
+      }
+    };
+
+    const matchValue = makeValue();
+
+    // -----------------------------
+    // 2. Split fields into:
+    //    - direct string fields
+    //    - nested paths
+    //    - objectId refs → recursive
+    // -----------------------------
+    const directConditions: any[] = [];
+    const nestedConditions: any[] = [];
+    let refConditions: any[] = [];
+
+    const subfields: any[] = Object.values(model.schema['subpaths'])
+      .filter((s) => (s as Record<string, any>)['schemaName'] === 'ObjectId')
+      .map((s) => (s as Record<string, any>)['path']);
+    console.log('subfields', subfields);
+
+    for (const field of fields) {
+      const path = schemaPaths[field];
+      const fullPath = parentPath ? `${parentPath}.${field}` : field;
+      // A) NESTED PATHS (e.g. profile.name)
+      // if (!path && field.includes('.')) {
+      //   nestedConditions.push({ [fullPath]: matchValue });
+      //   continue;
+      // }
+
+      if (!path) continue;
+
+      // B) REF FIELDS: ObjectId with a referenced model
+      if (subfields.includes(field) && path.options.type[0]?.ref) {
+        const refModelName = path.options.type[0].ref;
+        const refModel = this.connection.models[refModelName];
+        if (refModel) {
+          const refSearch = this.buildSearch(search, refModel, searchFieldMap, options, visitedModels, field);
+
+          if (Object.keys(refSearch).length > 0) {
+            // Attach conditions under populate match
+            refConditions = [...(refSearch.$or ?? [])];
+          }
+        }
+        continue;
+      }
+
+      // C) DIRECT SEARCHABLE FIELDS (String, Number, etc.)
+      else {
+        directConditions.push({ [fullPath]: matchValue });
+      }
     }
 
-    visitedEntities.add(entity);
+    // -----------------------------
+    // 3. FULL TEXT SEARCH (if enabled)
+    // -----------------------------
+    if (options === 'fulltext') {
+      return { $text: { $search: search } };
+    }
 
-    const fields: string[] =
-      searchFieldMap?.[entity]?.map((f) => f.toString()) ?? repo.metadata.columns.map((c) => c.propertyName);
-
-    fields.forEach((field) => {
-      const column = repo.metadata.columns.find((c) => c.propertyName === field);
-      if (!column) {
-        return;
-      }
-      const para = partial ? `%${search}%` : search;
-      // if(column.enum){
-      if (column.isArray && !partial) {
-        result.push({
-          [field]: Raw((alias) => `:search ILIKE ANY ( ${alias} ::text[] )`, {
-            search: `${para}`,
-          }),
-        });
-      } else {
-        result.push({
-          [field]: Raw((alias) => `${alias} ::text ILIKE :search`, {
-            search: `${para}`,
-          }),
-        });
-      }
-    });
-
-    repo.metadata.relations.forEach((relation) => {
-      if (!fields.includes(relation.propertyName)) {
-        return;
-      }
-
-      const relatedMeta = relation.inverseEntityMetadata;
-      const relatedRepo = this.dataSource.getRepository(relatedMeta.target);
-
-      const nestedWhere = this.searchWhere(relatedRepo, search, partial, searchFieldMap, visitedEntities);
-
-      nestedWhere.forEach((w) => result.push({ [relation.propertyName]: w }));
-    });
-
-    return result;
+    // -----------------------------
+    // 4. Combine all $or conditions
+    // -----------------------------
+    const allConditions = [...directConditions, ...nestedConditions, ...refConditions.flatMap((c) => c)];
+    console.log('refConditions', refConditions);
+    console.log('buildSearchNew conditions', allConditions);
+    return allConditions.length > 0 ? ({ $or: allConditions } as FilterQuery<T>) : ({} as FilterQuery<T>);
   };
 
-  public singleWhere = <T extends ObjectLiteral, V>(
-    search: string,
-    key: string,
-    repo: Repository<T>,
-    partial: boolean = false
-  ): FindOperator<V> | V | undefined => {
-    const para = partial ? `%${search}%` : search;
-    const column = repo.metadata.columns.find((c) => c.propertyName === key);
-    if (!column) {
-      return;
-    }
-    if (column.isArray && !partial) {
-      return Raw((alias) => `:search ILIKE ANY ( ${alias} ::text[] )`, {
-        search: `${para}`,
-      });
-    } else {
-      return Raw((alias) => `${alias} ::text ILIKE :search`, {
-        search: `${para}`,
-      });
-    }
-  };
+  // Helper to escape regex safely
+}
+function escapeRegex(str: string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

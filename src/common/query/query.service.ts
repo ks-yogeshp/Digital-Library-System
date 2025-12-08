@@ -1,9 +1,9 @@
 import type { Request } from 'express';
 import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
-import { And, FindOptionsOrder, FindOptionsWhere, ObjectLiteral, Raw } from 'typeorm';
+import { PipelineStage } from 'mongoose';
 
-import { QueryOptionsDto } from '../dtos/query.options.dto';
+import { QueryOptionsMongoDto } from '../dtos/query.options.dto';
 import { QueryFilterService } from './query-filter.service';
 import { QuerySearchService } from './query-search.service';
 
@@ -18,141 +18,105 @@ export class QueryService {
     private readonly queryFilterService: QueryFilterService
   ) {}
 
-  public async query<T extends ObjectLiteral, M extends Record<string, any>>(
-    options: QueryOptionsDto<T, M>
-  ): Promise<{ result: T[]; totalItems: number; newUrl: URL }> {
-    const {
-      query,
-      repository,
-      searchFieldMap,
-      where,
-      relations,
-      partial = { search: true, filter: true },
-    } = options;
+  public async query<T, M extends Record<string, any>>(options: QueryOptionsMongoDto<T, M>) {
+    console.log('mongoQuery options', options);
 
-    let whereArray: FindOptionsWhere<T>[] = [];
+    const { query, model, searchFieldMap, relations, searchOptions = 'partial' } = options;
 
-    if (where) {
-      whereArray = Array.isArray(where) ? [...where] : [where];
-    }
+    // -----------------------------
+    // 1. Build search conditions
+    // -----------------------------
+    // Convert search string into MongoDB query object.
+    // Example output: { name: { $regex: /po/i } }
+    const search = query.search
+      ? this.querySearchService.buildSearch(query.search || '', model, searchFieldMap, searchOptions)
+      : {};
 
-    let AndWhere: FindOptionsWhere<T> = {};
-    let OrWhere: FindOptionsWhere<T>[] = [];
+    const filter = query.filters ? this.queryFilterService.buildFilter(model, query.filters) : {};
 
-    if (query.filters) {
-      AndWhere = this.queryFilterService.filterWhere(repository, query.filters);
-    }
+    console.log('mongoQuery search before merge', search);
+    console.log('mongoQuery filter before merge', filter);
+    // Merge search into mongoQuery object
+    // const mongoQuery: QueryOptions = { ...search };
+    // console.log('mongoQuery mongoQuery before filter', search);
 
-    if (query.search) {
-      OrWhere = this.querySearchService.searchWhere(repository, query.search, partial.search, searchFieldMap);
-    }
+    // -----------------------------
+    // 2. Pagination setup
+    // -----------------------------
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    let finalWhere: FindOptionsWhere<T>[] = [];
+    // -----------------------------
+    // 3. Aggregation pipeline
+    // -----------------------------
+    const pipeline: PipelineStage[] = [];
 
-    if (OrWhere.length === 0) {
-      finalWhere = [AndWhere];
-    } else {
-      finalWhere = OrWhere.map((w) => {
-        const orKey = Object.keys(w)[0];
-        const hasAndKey = Object.prototype.hasOwnProperty.call(AndWhere, orKey);
-
-        if (!hasAndKey) {
-          return { ...w, ...AndWhere };
-        }
-
-        const nonConflictingWhere = { ...AndWhere };
-        delete nonConflictingWhere[orKey];
-
-        // Early return if no filters/search
-        if (!query.filters || !query.search) {
-          return {} as FindOptionsWhere<T>;
-        }
-
-        type ColumnType = T[typeof orKey];
-
-        const filterOperator = this.queryFilterService.singleWhere<T, ColumnType>(
-          query.filters[orKey],
-          orKey,
-          repository
-        );
-
-        const searchOperator = this.querySearchService.singleWhere<T, ColumnType>(
-          query.search,
-          orKey,
-          repository,
-          partial.search
-        );
-
-        if (!filterOperator || !searchOperator) {
-          return {} as FindOptionsWhere<T>;
-        }
-
-        // Both operators exist → handle Raw or And cases
-        const hasSqlA = AndWhere[orKey]?.['getSql'];
-        const hasSqlB = w[orKey]?.['getSql'];
-        if (hasSqlA && hasSqlB) {
-          const newParams = {
-            search1: searchOperator['objectLiteralParameters']?.['search'],
-            search2: filterOperator['objectLiteralParameters']?.['values'],
-          };
-
-          const afterAnd: FindOptionsWhere<T> = {};
-
-          if (!partial.search) {
-            afterAnd[orKey as keyof T] = Raw(
-              (alias) => `:search1 ILIKE ANY ( ${alias} ::text[] ) and ${alias} && :search2`,
-              { ...newParams }
-            ) as any;
-          } else {
-            afterAnd[orKey as keyof T] = Raw(
-              (alias) => `${alias} ::text ILIKE :search1 and ${alias} && :search2`,
-              { ...newParams }
-            ) as any;
-          }
-
-          return {
-            ...nonConflictingWhere,
-            ...afterAnd,
-          };
-        }
-
-        // Fallback to And operator merge
-        return {
-          ...nonConflictingWhere,
-          [orKey]: And(filterOperator, searchOperator),
-        } as FindOptionsWhere<T>;
-      }).filter((x): x is FindOptionsWhere<T> => Object.keys(x).length > 0);
-    }
-
-    if (whereArray.length > 1) {
-      //change remaining
-      whereArray = whereArray.map((w) => ({ ...finalWhere, ...w }));
-    } else {
-      whereArray = finalWhere;
-    }
-
-    let order: FindOptionsOrder<T> = {};
-    if (query.sortBy) {
-      order = {
-        [query.sortBy]: query.sortOrder ?? 'ASC',
-      } as FindOptionsOrder<T>;
-    }
-    const [result, totalItems] = await repository.findAndCount({
-      where: whereArray.length ? whereArray : undefined,
-      order: order,
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      relations,
+    // 3a. Add $lookup for relations (e.g., authors)
+    relations?.forEach((relation) => {
+      pipeline.push({
+        $lookup: {
+          from: relation, // collection name in MongoDB
+          localField: relation, // field in main document
+          foreignField: '_id', // field in related collection
+          as: relation, // result array will be stored in this field
+        },
+      });
     });
-    const baseUrl = this.request.protocol + '://' + this.request.headers.host + '/';
-    const newUrl = new URL(this.request.url, baseUrl);
+    if (filter && Object.keys(filter).length > 0) {
+      console.log('Adding filter to pipeline', filter);
+      pipeline.push({ $match: filter });
+    }
+    // 3b. Add $match stage for search conditions
+    if (search && Object.keys(search).length > 0) {
+      console.log('Adding search to pipeline', search);
+      pipeline.push({ $match: search });
+    }
 
-    const response = {
-      result,
-      totalItems,
-      newUrl,
-    };
+    // -----------------------------
+    // 4. Count pipeline for total items
+    // -----------------------------
+    // Copy pipeline and append $count to get total items
+    const countPipeline = [...pipeline, { $count: 'total' }];
 
-    return response;
+    // -----------------------------
+    // 5. Sorting
+    // -----------------------------
+    if (query.sortBy) {
+      const sort: Record<string, 1 | -1> = {};
+      sort[query.sortBy] = query.sortOrder === 'DESC' ? -1 : 1;
+      pipeline.push({ $sort: sort });
+    }
+
+    // -----------------------------
+    // 6. Pagination in aggregation
+    // -----------------------------
+    pipeline.push({ $skip: skip });
+    pipeline.push({ $limit: limit });
+
+    // -----------------------------
+    // 7. Execute aggregation query
+    // -----------------------------
+    const dbQuery = model.aggregate(pipeline);
+
+    // 7a. Execute both query and count in parallel
+    const [result, totalItems] = await Promise.all([
+      dbQuery.exec(),
+      model
+        .aggregate(countPipeline)
+        .exec()
+        .then((res) => res[0]?.total || 0),
+    ]);
+
+    // -----------------------------
+    // 8. Build new URL for pagination links
+    // -----------------------------
+    const base = `${this.request.protocol}://${this.request.headers.host}/`;
+    const newUrl = new URL(this.request.url, base);
+
+    // -----------------------------
+    // 9. Return results
+    // -----------------------------
+    return { result, totalItems, newUrl };
   }
 }

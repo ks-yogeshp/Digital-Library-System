@@ -1,12 +1,12 @@
-import { FindOptionsRelations, FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
+import { Model } from 'mongoose';
 
 import { QueryDto } from '../dtos/query.dto';
 
 type SearchFieldMap<M extends Record<string, any>> = {
   [K in keyof M]?: Array<keyof M[K]>;
 };
-
-export class QueryOptionsDto<T extends ObjectLiteral, M extends Record<string, any> = Record<string, any>> {
+export type SearchOptions = 'partial' | 'startsWith' | 'endsWith' | 'exact' | 'fulltext';
+export class QueryOptionsMongoDto<T, M extends Record<string, any> = Record<string, any>> {
   /**
    * Query parameters (pagination, search, filters, sorting)
    */
@@ -15,30 +15,27 @@ export class QueryOptionsDto<T extends ObjectLiteral, M extends Record<string, a
   /**
    * TypeORM repository for the entity being queried
    */
-  repository!: Repository<T>;
+  model!: Model<T>;
 
   /**
-   * Optional search field map
+   * search field map
    * Defines which entity fields are searchable
    */
-  searchFieldMap?: SearchFieldMap<M>;
+  searchFieldMap!: SearchFieldMap<M>;
 
   /**
    * Optional base WHERE clause(s)
    * Can be a single object or an array (OR)
    */
-  where?: FindOptionsWhere<T> | FindOptionsWhere<T>[];
+  // where?: FindOptionsWhere<T> | FindOptionsWhere<T>[];
 
   /**
    * Optional relations to include
    */
-  relations?: FindOptionsRelations<T>;
+  relations?: string[];
 
   /**
    * Control partial behavior for search/filter logic
    */
-  partial?: {
-    search?: boolean;
-    filter?: boolean;
-  };
+  searchOptions?: SearchOptions;
 }
