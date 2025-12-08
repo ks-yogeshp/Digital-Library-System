@@ -21,7 +21,7 @@ import { BooksService } from './services/books.service';
 export class BooksController {
   constructor(private readonly bookService: BooksService) {}
 
-  // @Auth()
+  @Auth()
   @GetRoute('', {
     summary: 'Get all books',
     description: 'Retrieve a list of all books with optional pagination and filtering.',
@@ -33,13 +33,12 @@ export class BooksController {
     },
   })
   public async getAllBooks(
-    @Query(new QueryDtoPipe(Book)) queryDto: QueryDto
-    // @ActiveUser() user: IActiveUser
+    @Query(new QueryDtoPipe(Book)) queryDto: QueryDto,
+    @ActiveUser() user: IActiveUser
   ) {
     const books = await this.bookService.getAllBooks(queryDto);
-    const result = books.result.map((book) => new DetailedBookDto(book));
+    const result = books.result.map((book) => new DetailedBookDto(book, user.role));
     return new PageDto(result, queryDto.page, queryDto.limit, books.totalItems, books.newUrl);
-    // return result;
   }
 
   @Auth()
