@@ -5,7 +5,7 @@ import { ActiveUser } from 'src/auth/decorators/active-user.decorator';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { PageDto } from 'src/common/dtos/page.dto';
 import { QueryDto } from 'src/common/dtos/query.dto';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 import { DeleteRoute, GetRoute, PutRoute } from './../common/decorators/route.decorators';
 import { SuccessDto } from './dto/success.dto';
 import { DetailedUserDto, UpdateUserDto, UserDto } from './dto/user.dto';
@@ -44,7 +44,7 @@ export class UsersController {
   })
   public async getUserById(@ActiveUser() activeUser: IActiveUser) {
     const user = await this.usersService.getUserById(activeUser.sub);
-    return DetailedUserDto.toDto(user);
+    return new DetailedUserDto(user);
   }
 
   // @Auth()
@@ -66,7 +66,7 @@ export class UsersController {
   })
   public async updateUser(@ActiveUser() activeUser: IActiveUser, @Body() upadateUserDto: UpdateUserDto) {
     const user = await this.usersService.updateUser(activeUser.sub, upadateUserDto);
-    return DetailedUserDto.toDto(user);
+    return new DetailedUserDto(user);
   }
 
   @Auth()

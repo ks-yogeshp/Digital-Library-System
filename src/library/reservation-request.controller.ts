@@ -1,11 +1,11 @@
-import { Body, Controller, Param, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Param } from '@nestjs/common';
 
 import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 import { PostRoute } from './../common/decorators/route.decorators';
-import { DetailedBorrowRecordDto } from './dto/borrow-record.dto';
+import { BorrowRecordDto } from './dto/borrow-record.dto';
 import { CheckoutReservationRequestDto } from './dto/checkout-reservation-request.dto';
-import { DetailedReservationRequestDto } from './dto/reservation-request.dto';
+import { ReservationRequestDto } from './dto/reservation-request.dto';
 import { ReservationRequestService } from './services/reservation-request.service';
 
 @Controller('reservation-request')
@@ -18,14 +18,14 @@ export class ReservationRequestController {
   @PostRoute('{:id}/reserve', {
     summary: 'Reserve a book',
     description: 'Reserve a book that has been requested.',
-    // Ok: DetailedBorrowRecordDto,
+    Ok: BorrowRecordDto,
   })
   public async reserveBook(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() checkoutReservationRequestDto: CheckoutReservationRequestDto
   ) {
     const record = await this.reservationRequestService.checkoutBook(id, checkoutReservationRequestDto);
-    return DetailedBorrowRecordDto.toDto(record);
+    return new BorrowRecordDto(record);
   }
 
   @Auth({
@@ -34,10 +34,10 @@ export class ReservationRequestController {
   @PostRoute('{:id}/cancel', {
     summary: 'Cancel a reservation request',
     description: 'Cancel an existing reservation request by its ID.',
-    // Ok: DetailedReservationRequestDto,
+    Ok: ReservationRequestDto,
   })
-  public async cancelReservation(@Param('id', ParseIntPipe) id: number) {
+  public async cancelReservation(@Param('id') id: string) {
     const record = await this.reservationRequestService.cancelResrvation(id);
-    return DetailedReservationRequestDto.toDto(record);
+    return new ReservationRequestDto(record);
   }
 }

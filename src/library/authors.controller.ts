@@ -1,11 +1,11 @@
-import { Body, Controller, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Body, Controller, Param, Query } from '@nestjs/common';
 
 import type { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { ActiveUser } from 'src/auth/decorators/active-user.decorator';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { PageDto } from 'src/common/dtos/page.dto';
 import { QueryDto } from 'src/common/dtos/query.dto';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 import { DeleteRoute, GetRoute, PostRoute, PutRoute } from './../common/decorators/route.decorators';
 import { AuthorDto, CreateAuthorDto, DetailedAuthorDto, UpdateAuthorDto } from './dto/author.dto';
 import { SuccessDto } from './dto/success.dto';
@@ -37,9 +37,9 @@ export class AuthorsController {
     description: 'Retrieve a single author by their unique ID',
     Ok: DetailedAuthorDto,
   })
-  public async getAuthorById(@Param('id', ParseIntPipe) id: number, @ActiveUser() user: IActiveUser) {
+  public async getAuthorById(@Param('id') id: string, @ActiveUser() user: IActiveUser) {
     const author = await this.authorsService.getAuthorById(id);
-    return DetailedAuthorDto.toDto(author, user.role);
+    return new DetailedAuthorDto(author, user.role);
   }
 
   @Auth({ roles: [Role.ADMIN, Role.MANAGER] })
@@ -50,7 +50,7 @@ export class AuthorsController {
   })
   public async createAuthor(@ActiveUser() user: IActiveUser, @Body() createAuthorDto: CreateAuthorDto) {
     const author = await this.authorsService.createAuthor(user, createAuthorDto);
-    return DetailedAuthorDto.toDto(author, user.role);
+    return new DetailedAuthorDto(author, user.role);
   }
 
   @Auth({ roles: [Role.ADMIN, Role.MANAGER] })
@@ -60,12 +60,12 @@ export class AuthorsController {
     Ok: DetailedAuthorDto,
   })
   public async updateAuthor(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @ActiveUser() user: IActiveUser,
     @Body() updateAuthorDto: UpdateAuthorDto
   ) {
     const author = await this.authorsService.updateAuthor(id, user, updateAuthorDto);
-    return DetailedAuthorDto.toDto(author, user.role);
+    return new DetailedAuthorDto(author, user.role);
   }
 
   @Auth({ roles: [Role.ADMIN] })
@@ -74,7 +74,7 @@ export class AuthorsController {
     description: 'Delete an author by their unique ID',
     Ok: SuccessDto,
   })
-  public async deleteAuthor(@Param('id', ParseIntPipe) id: number, @ActiveUser() user: IActiveUser) {
+  public async deleteAuthor(@Param('id') id: string, @ActiveUser() user: IActiveUser) {
     await this.authorsService.deleteAuthor(id, user);
     return new SuccessDto();
   }
