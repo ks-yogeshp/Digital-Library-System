@@ -1,5 +1,5 @@
 import { EnumField, FileField, NumberField, StringField } from 'src/common/decorators/field.decorators';
-import { ImageMetadata } from 'src/database/entities/image-metadata.entity';
+import { ImageMetadata } from 'src/database/schemas/image-metadata.schema';
 import { ImageUploadType } from '../enums/image-upload-type.enum';
 
 export class ImageUploadDto {
@@ -16,9 +16,9 @@ export class ImageParamsDto {
 
   @NumberField({
     description: 'ID of the author or book',
-    example: 1,
+    example: '64b2f3c1b5d9a6a1e2d3f4b5',
   })
-  id: number;
+  id: string;
 }
 
 export class ImageResponseDto {

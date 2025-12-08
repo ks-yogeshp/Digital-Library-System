@@ -33,9 +33,7 @@ export class ImageController {
     @Param() params: ImageParamsDto,
     @UploadedFile(
       new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
-        ],
+        validators: [new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 })],
         fileIsRequired: true,
         errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
       })

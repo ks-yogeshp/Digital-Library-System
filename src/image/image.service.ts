@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Types } from 'mongoose';
 
-import { ImageMetadata } from 'src/database/entities/image-metadata.entity';
 import { AuthorRepository } from 'src/database/repositories/author.repository';
 import { BookRepository } from 'src/database/repositories/book.repository';
 import { ImageMetadataRepository } from 'src/database/repositories/image-metadata.repository';
+import { ImageMetadata } from 'src/database/schemas/image-metadata.schema';
 
 @Injectable()
 export class ImageService {
@@ -12,7 +13,7 @@ export class ImageService {
     private readonly authorRepository: AuthorRepository,
     private readonly bookRepository: BookRepository
   ) {}
-  public async uploadImage(file: Express.Multer.File, type: 'author' | 'book', id: number) {
+  public async uploadImage(file: Express.Multer.File, type: 'author' | 'book', id: string) {
     if (!file) {
       throw new Error('No file provided');
     }
@@ -22,42 +23,41 @@ export class ImageService {
     }
     let imageMetadata: ImageMetadata = new ImageMetadata();
     if (type === 'author') {
-      const author = await this.authorRepository.findOne({ where: { id } });
+      const author = await this.authorRepository.query().findById(new Types.ObjectId(id));
       if (!author) {
         throw new NotFoundException('Author not found');
       }
-      const existing = await this.imageMetadataRepository.findOne({ where: { author: { id } } });
+      const existing = await this.imageMetadataRepository.query().findOne({ author: author._id });
       if (existing) {
         imageMetadata = existing;
       } else {
-        imageMetadata.authorId = author.id;
+        imageMetadata.author = author._id;
       }
     } else if (type === 'book') {
-      const book = await this.bookRepository.findOne({ where: { id } });
+      const book = await this.bookRepository.query().findById(new Types.ObjectId(id));
       if (!book) {
         throw new NotFoundException('Book not found');
       }
-      const existing = await this.imageMetadataRepository.findOne({ where: { book: { id } } });
+      const existing = await this.imageMetadataRepository.query().findOne({ book: book._id });
       if (existing) {
         imageMetadata = existing;
       } else {
-        imageMetadata.bookId = book.id;
+        imageMetadata.book = book._id;
       }
     } else {
       throw new Error('Invalid type. Must be either "author" or "book".');
     }
     imageMetadata.imageName = file.filename;
     imageMetadata.imagePath = `uploads/${type}s/${file.filename}`;
-    await this.imageMetadataRepository.save(imageMetadata);
-    return imageMetadata;
+    return await this.imageMetadataRepository.query().insertOne(imageMetadata);
   }
 
-  public async getUploadedImage(type: 'author' | 'book', id: number) {
+  public async getUploadedImage(type: 'author' | 'book', id: string) {
     let imageMetadata: ImageMetadata | null = null;
     if (type === 'author') {
-      imageMetadata = await this.imageMetadataRepository.findOne({ where: { author: { id } } });
+      imageMetadata = await this.imageMetadataRepository.query().findOne({ author: new Types.ObjectId(id) });
     } else if (type === 'book') {
-      imageMetadata = await this.imageMetadataRepository.findOne({ where: { book: { id } } });
+      imageMetadata = await this.imageMetadataRepository.query().findOne({ book: new Types.ObjectId(id) });
     }
     if (!imageMetadata) {
       throw new NotFoundException('Image not found');
