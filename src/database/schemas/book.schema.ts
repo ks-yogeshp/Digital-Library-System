@@ -1,12 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
+import { AuthorDocument } from './author.schema';
+import { BorrowRecordDocument } from './borrow-record.schema';
 import { AvailabilityStatus } from './enums/availibity-status.enum';
 import { Category } from './enums/category.enum';
-import { AuthorDocument } from './author.schema';
-import { BorrowRecord, BorrowRecordDocument } from './borrow-record.schema';
 import { MetadataSoftSchema } from './metadata-soft.schema';
-import { ReservationRequest, ReservationRequestDocument } from './reservation-request.schema';
+import { ReservationRequestDocument } from './reservation-request.schema';
+import { SoftDeletePlugin } from '../plugins/soft-delete.plugin';
 
 export type BookDocument = HydratedDocument<Book>;
 export type IBookWihtBorrowCount = BookDocument & { authorNames: string[]; borrowCount: number };
@@ -74,3 +75,4 @@ export class Book extends MetadataSoftSchema {
 }
 
 export const BookSchema = SchemaFactory.createForClass(Book);
+BookSchema.plugin(SoftDeletePlugin);
