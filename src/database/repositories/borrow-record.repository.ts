@@ -1,7 +1,17 @@
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
-import { DatabaseRepository } from '../decorators/repository.decorator';
-import { BorrowRecord } from '../entities/borrow-record.entity';
+import { MongoRepository } from '../decorators/repository.decorator';
+import { BorrowRecord, BorrowRecordSchema } from '../schemas/borrow-record.schema';
 
-@DatabaseRepository(BorrowRecord)
-export class BorrowRecordRepository extends Repository<BorrowRecord> {}
+@MongoRepository(BorrowRecord.name, BorrowRecordSchema)
+export class BorrowRecordRepository {
+  constructor(
+    @InjectModel(BorrowRecord.name)
+    private readonly borrowRecordModel: Model<BorrowRecord>
+  ) {}
+
+  query() {
+    return this.borrowRecordModel;
+  }
+}

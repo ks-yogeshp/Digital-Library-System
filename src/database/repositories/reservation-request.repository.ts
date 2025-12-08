@@ -1,7 +1,17 @@
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
-import { DatabaseRepository } from '../decorators/repository.decorator';
-import { ReservationRequest } from '../entities/reservation-request.entity';
+import { MongoRepository } from '../decorators/repository.decorator';
+import { ReservationRequest, ReservationRequestSchema } from '../schemas/reservation-request.schema';
 
-@DatabaseRepository(ReservationRequest)
-export class ReservationRequestRepository extends Repository<ReservationRequest> {}
+@MongoRepository(ReservationRequest.name, ReservationRequestSchema)
+export class ReservationRequestRepository {
+  constructor(
+    @InjectModel(ReservationRequest.name)
+    private readonly reservationRequestModel: Model<ReservationRequest>
+  ) {}
+
+  query() {
+    return this.reservationRequestModel;
+  }
+}

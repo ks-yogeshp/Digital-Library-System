@@ -1,7 +1,21 @@
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 
-import { DatabaseRepository } from '../decorators/repository.decorator';
-import { User } from '../entities/user.entity';
+import { MongoRepository } from '../decorators/repository.decorator';
+import { User, UserSchema } from '../schemas/user.schema';
 
-@DatabaseRepository(User)
-export class UserRepository extends Repository<User> {}
+@MongoRepository(User.name, UserSchema)
+export class UserRepository {
+  constructor(
+    @InjectModel(User.name)
+    private readonly userModel: Model<User>
+  ) {}
+
+  query() {
+    return this.userModel;
+  }
+
+  async softDeleteById(id: Types.ObjectId) {
+    return await this.userModel.updateOne({ _id: id }, { deletedAt: new Date() }).exec();
+  }
+}

@@ -1,7 +1,17 @@
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
-import { DatabaseRepository } from '../decorators/repository.decorator';
-import { ImageMetadata } from '../entities/image-metadata.entity';
+import { MongoRepository } from '../decorators/repository.decorator';
+import { ImageMetadata, ImageMetadataSchema } from '../schemas/image-metadata.schema';
 
-@DatabaseRepository(ImageMetadata)
-export class ImageMetadataRepository extends Repository<ImageMetadata> {}
+@MongoRepository(ImageMetadata.name, ImageMetadataSchema)
+export class ImageMetadataRepository {
+  constructor(
+    @InjectModel(ImageMetadata.name)
+    private readonly imageMetaDataModel: Model<ImageMetadata>
+  ) {}
+
+  query() {
+    return this.imageMetaDataModel;
+  }
+}
