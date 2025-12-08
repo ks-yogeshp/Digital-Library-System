@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { add, startOfDay } from 'date-fns';
-import mongoose, { Types } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 
 import { IActiveUser } from 'src/auth/interfaces/active-user.interface';
 import { BookRepository } from 'src/database/repositories/book.repository';
@@ -9,6 +9,7 @@ import { UserRepository } from 'src/database/repositories/user.repository';
 import { BorrowRecord, BorrowRecordDocument } from 'src/database/schemas/borrow-record.schema';
 import { AvailabilityStatus } from '../../database/schemas/enums/availibity-status.enum';
 import { CheckoutDto } from '../dto/checkout.dto';
+import { InjectConnection } from '@nestjs/mongoose';
 
 @Injectable()
 export class BookCheckoutService {
@@ -17,7 +18,10 @@ export class BookCheckoutService {
 
     private readonly userRepository: UserRepository,
 
-    private readonly borrowRecordRepository: BorrowRecordRepository
+    private readonly borrowRecordRepository: BorrowRecordRepository,
+
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {}
 
   public async checkout(
@@ -25,9 +29,10 @@ export class BookCheckoutService {
     user: IActiveUser,
     checkoutDto: CheckoutDto
   ): Promise<BorrowRecordDocument> {
+    console.log('Checkout Service Invoked');
     const bookDetail = await this.bookRepository.query().findById(new Types.ObjectId(id));
     const userDetail = await this.userRepository.query().findById(user.sub);
-
+    console.log('Book Detail and User Detail fetched');
     if (!bookDetail || !userDetail) {
       throw new BadRequestException('Invalid book or user. Please check the IDs.');
     }
@@ -45,8 +50,7 @@ export class BookCheckoutService {
     newRecord.borrowDate = now;
     newRecord.dueDate = add(now, { days: checkoutDto.days });
     let insertedDoc: BorrowRecordDocument;
-    const session = await mongoose.startSession();
-
+    const session = await this.connection.startSession();
     try {
       insertedDoc = await session.withTransaction(async () => {
         await bookDetail.save({ session });

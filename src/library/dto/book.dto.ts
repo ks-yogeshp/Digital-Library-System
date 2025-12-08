@@ -169,12 +169,12 @@ export class DetailedBookDto extends BookDto {
     this.authors = book.authors?.map((author) =>
       author instanceof Types.ObjectId ? author.toString() : new AuthorDto(author, role)
     );
-    this.borrowingHistory = book.borrowHistory?.map((borrowHistory) =>
+    this.borrowingHistory = book.borrowRecord?.map((borrowHistory) =>
       borrowHistory instanceof Types.ObjectId
         ? borrowHistory.toString()
         : new BorrowRecordDto(borrowHistory, role)
     );
-    this.reservationHistory = book.reservationHistory?.map((reservationHistory) =>
+    this.reservationHistory = book.reservationRequest?.map((reservationHistory) =>
       reservationHistory instanceof Types.ObjectId
         ? reservationHistory.toString()
         : new ReservationRequestDto(reservationHistory, role)

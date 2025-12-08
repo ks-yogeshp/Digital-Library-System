@@ -1,22 +1,18 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-import { RequestStatus } from './enums/request-status.enum';
 import { AbstractSoftSchema } from './abstract-soft.schema';
 import { BookDocument } from './book.schema';
+import { RequestStatus } from './enums/request-status.enum';
 import { UserDocument } from './user.schema';
 
 export type ReservationRequestDocument = HydratedDocument<ReservationRequest>;
 @Schema({ timestamps: true })
 export class ReservationRequest extends AbstractSoftSchema {
-  @Prop({
-    type: { type: Types.ObjectId, ref: 'Book' },
-  })
+  @Prop({ type: Types.ObjectId, ref: 'Book' })
   book: Types.ObjectId | BookDocument;
 
-  @Prop({
-    type: { type: Types.ObjectId, ref: 'User' },
-  })
+  @Prop({ type: Types.ObjectId, ref: 'User' })
   user: Types.ObjectId | UserDocument;
 
   @Prop({

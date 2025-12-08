@@ -82,7 +82,7 @@ export class BooksService {
     newBook.version = createBookDto.version;
     newBook.yearOfPublication = createBookDto.yearOfPublication;
     newBook.createdBy = user.sub;
-    newBook.authors = authors;
+    newBook.authors = authors.map((author) => author._id);
     let savedBook: BookDocument;
     const session = await mongoose.startSession();
     try {
@@ -117,7 +117,7 @@ export class BooksService {
     existingBook.yearOfPublication = updateBookDto.yearOfPublication ?? existingBook.yearOfPublication;
     existingBook.category = updateBookDto.category ?? existingBook.category;
     existingBook.version = updateBookDto.version ?? existingBook.version;
-    // existingBook.updatedBy = user.sub;
+    existingBook.updatedBy = user.sub;
     // existingBook.authors = updateBookDto.authorIds ? authors : existingBook.authors;
     const newAuthorsId = newAuthors.map((author) => author._id);
     const session = await mongoose.startSession();
@@ -146,7 +146,7 @@ export class BooksService {
                 .updateOne({ _id: authorId }, { $push: { books: existingBook._id } }, { session });
             }
           }
-          existingBook.authors = newAuthors;
+          existingBook.authors = newAuthors.map((author) => author._id);
           await existingBook.save({ session });
         } else {
           await existingBook.save({ session });
@@ -163,7 +163,6 @@ export class BooksService {
 
     if (!bookToDelete) throw new NotFoundException('Book does not exist with this Id');
 
-    // book.deletedBy = user.sub;
     await this.bookRepository.softDeleteById(id, user.sub);
 
     return { message: 'Book deleted successfully' };

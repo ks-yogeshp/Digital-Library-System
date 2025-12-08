@@ -53,13 +53,13 @@ export class User extends AbstractSoftSchema {
     type: [{ type: Types.ObjectId, ref: 'BorrowRecord' }],
     required: false,
   })
-  borrowHistory?: (Types.ObjectId | BorrowRecordDocument)[];
+  borrowRecord?: (Types.ObjectId | BorrowRecordDocument)[];
 
   @Prop({
     type: [{ type: Types.ObjectId, ref: 'ReservationRequest' }],
     required: false,
   })
-  reservationHistory?: (Types.ObjectId | ReservationRequestDocument)[];
+  reservationRequest?: (Types.ObjectId | ReservationRequestDocument)[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

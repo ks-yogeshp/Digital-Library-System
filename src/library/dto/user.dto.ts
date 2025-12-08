@@ -1,6 +1,5 @@
 import { PickType } from '@nestjs/swagger';
 import { Types } from 'mongoose';
-import { use } from 'passport';
 
 import { Role } from 'src/database/schemas/enums/role.enum';
 import { IUserWithPenalty, UserDocument } from 'src/database/schemas/user.schema';
@@ -100,10 +99,10 @@ export class DetailedUserDto extends UserDto {
 
   constructor(user: UserDocument) {
     super(user);
-    this.borrowingHistory = user.borrowHistory?.map((borrowHistory) =>
+    this.borrowingHistory = user.borrowRecord?.map((borrowHistory) =>
       borrowHistory instanceof Types.ObjectId ? borrowHistory.toString() : new BorrowRecordDto(borrowHistory)
     );
-    this.reservationHistory = user.reservationHistory?.map((reservationHistory) =>
+    this.reservationHistory = user.reservationRequest?.map((reservationHistory) =>
       reservationHistory instanceof Types.ObjectId
         ? reservationHistory.toString()
         : new ReservationRequestDto(reservationHistory)

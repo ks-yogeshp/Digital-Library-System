@@ -1,8 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-import { BookStatus } from './enums/book-status.enum';
 import { AbstractSoftSchema } from './abstract-soft.schema';
+import { BookStatus } from './enums/book-status.enum';
 import { BookDocument } from './book.schema';
 import { UserDocument } from './user.schema';
 
@@ -10,15 +10,15 @@ export type BorrowRecordDocument = HydratedDocument<BorrowRecord>;
 
 @Schema({ timestamps: true })
 export class BorrowRecord extends AbstractSoftSchema {
-  @Prop({
-    type: { type: Types.ObjectId, ref: 'Book' },
-  })
+  @Prop({ type: Types.ObjectId, ref: 'Book' })
   book: Types.ObjectId | BookDocument;
 
-  @Prop({
-    type: { type: Types.ObjectId, ref: 'User' },
-  })
+  bookPopulate?: BookDocument ;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
   user: Types.ObjectId | UserDocument;
+
+  userPopulate?: UserDocument;
 
   @Prop({
     type: Date,

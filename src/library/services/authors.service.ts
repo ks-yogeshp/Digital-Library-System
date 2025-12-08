@@ -48,7 +48,7 @@ export class AuthorsService {
     newAuthor.name = createAuthorDto.name;
     newAuthor.email = createAuthorDto.email;
     newAuthor.country = createAuthorDto.country;
-    // newAuthor.createdBy = user.id;
+    newAuthor.createdBy = user.sub;
 
     return await this.authorRepository.query().insertOne(newAuthor);
   }
@@ -60,7 +60,7 @@ export class AuthorsService {
 
     existingAuthor.name = updateAuthorDto.name ?? existingAuthor.name;
     existingAuthor.country = updateAuthorDto.country ?? existingAuthor.country;
-    // existingAuthor.updatedBy = user.id;
+    existingAuthor.updatedBy = user.sub;
     await existingAuthor.save();
 
     return existingAuthor;
@@ -69,7 +69,6 @@ export class AuthorsService {
   public async deleteAuthor(id: string, user: IActiveUser) {
     const authorToDelete = await this.authorRepository.query().findById(new Types.ObjectId(id));
     if (!authorToDelete) throw new NotFoundException('Author does not exist with this Id');
-    // authorToDelete.deletedBy = user.id;
     await this.authorRepository.softDeleteById(id, user.sub);
 
     return { message: 'Author deleted successfully' };

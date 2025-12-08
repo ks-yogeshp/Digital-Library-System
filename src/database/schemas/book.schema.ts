@@ -2,10 +2,10 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
 import { AuthorDocument } from './author.schema';
-import { BorrowRecordDocument } from './borrow-record.schema';
 import { AvailabilityStatus } from './enums/availibity-status.enum';
 import { Category } from './enums/category.enum';
 import { MetadataSoftSchema } from './metadata-soft.schema';
+import { BorrowRecordDocument } from './borrow-record.schema';
 import { ReservationRequestDocument } from './reservation-request.schema';
 import { SoftDeletePlugin } from '../plugins/soft-delete.plugin';
 
@@ -65,13 +65,13 @@ export class Book extends MetadataSoftSchema {
     type: [{ type: Types.ObjectId, ref: 'BorrowRecord' }],
     required: false,
   })
-  borrowHistory?: (Types.ObjectId | BorrowRecordDocument)[];
+  borrowRecord?: (Types.ObjectId | BorrowRecordDocument)[];
 
   @Prop({
     type: [{ type: Types.ObjectId, ref: 'ReservationRequest' }],
     required: false,
   })
-  reservationHistory?: (Types.ObjectId | ReservationRequestDocument)[];
+  reservationRequest?: (Types.ObjectId | ReservationRequestDocument)[];
 }
 
 export const BookSchema = SchemaFactory.createForClass(Book);
