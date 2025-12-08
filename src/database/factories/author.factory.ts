@@ -1,12 +1,22 @@
 import { faker } from '@faker-js/faker';
-import { setSeederFactory } from 'typeorm-extension';
 
-import { Author } from 'src/database/entities/author.entity';
+import { Author } from '../schemas/author.schema';
 
-export default setSeederFactory(Author, () => {
-  const author = new Author();
-  author.name = faker.person.fullName();
-  author.email = faker.internet.email();
-  author.country = faker.location.country();
-  return author;
-});
+const authorFactory = {
+  make: () => {
+    const author = new Author();
+    author.name = faker.person.fullName();
+    author.email = faker.internet.email();
+    author.country = faker.location.country();
+    return author;
+  },
+  saveMany: async (authorModel, count: number) => {
+    const authors: Author[] = [];
+    for (let i = 0; i < count; i++) {
+      authors.push(authorFactory.make());
+    }
+    return await authorModel.insertMany(authors);
+  },
+};
+
+export default authorFactory;
