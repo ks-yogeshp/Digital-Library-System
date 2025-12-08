@@ -1,0 +1,64 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument, Types } from 'mongoose';
+
+import { Role } from './enums/role.enum';
+import { AbstractSoftSchema } from './abstract-soft.schema';
+import { BorrowRecordDocument } from './borrow-record.schema';
+import { ReservationRequestDocument } from './reservation-request.schema';
+
+export type UserDocument = HydratedDocument<User>;
+export type IUserWithPenalty = UserDocument & { totalPenalty: number };
+@Schema()
+export class User extends AbstractSoftSchema {
+  @Prop({
+    type: String,
+    required: true,
+  })
+  firstName: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  lastName?: string;
+
+  @Prop({
+    type: String,
+    required: true,
+    unique: true,
+  })
+  email: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  password?: string;
+
+  @Prop({
+    type: String,
+    enum: Role,
+    default: Role.STUDENT,
+  })
+  role?: Role;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  googleId?: string;
+
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'BorrowRecord' }],
+    required: false,
+  })
+  borrowHistory?: (Types.ObjectId | BorrowRecordDocument)[];
+
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'ReservationRequest' }],
+    required: false,
+  })
+  reservationHistory?: (Types.ObjectId | ReservationRequestDocument)[];
+}
+
+export const UserSchema = SchemaFactory.createForClass(User);
