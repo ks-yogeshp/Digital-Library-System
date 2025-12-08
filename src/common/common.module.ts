@@ -3,20 +3,22 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { BullModule } from '@nestjs/bullmq';
 import { Global, Module } from '@nestjs/common';
+import Redis from 'ioredis';
 
 import { CONFIG, logConfig } from 'src/config';
+import { DatabaseModule } from 'src/database/database.module';
 import { LibraryModule } from 'src/library/library.module';
 import { JobsService } from './jobs/jobs.service';
 import { ExpiredReservationWorker } from './jobs/workers/expired-reservation.worker';
 import { MailQueueWorker } from './jobs/workers/mail-queue.worker';
 import { MonthlyReportWorker } from './jobs/workers/monthly-report.worker';
 import { OverdueWorker } from './jobs/workers/overdue.worker';
+import { SendRemainderWorker } from './jobs/workers/send-remainder.worker';
 import { LogModule } from './log';
 import { MailService } from './mail/mail.service';
 import { QueryFilterService } from './query/query-filter.service';
 import { QuerySearchService } from './query/query-search.service';
 import { QueryService } from './query/query.service';
-import { SendRemainderWorker } from './jobs/workers/send-remainder.worker';
 
 const templateDir =
   process.env.NODE_ENV === 'production'
@@ -79,8 +81,15 @@ const templateDir =
         name: 'mail-queue',
       }
     ),
+    DatabaseModule.forRoot(),
   ],
   providers: [
+    {
+      provide: 'REDIS_CLIENT',
+      useFactory: () => {
+        return new Redis(CONFIG.REDIS_URL);
+      },
+    },
     QueryService,
     QuerySearchService,
     QueryFilterService,

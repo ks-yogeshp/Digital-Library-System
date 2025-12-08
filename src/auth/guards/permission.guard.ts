@@ -4,7 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 
 import { CONFIG } from 'src/config';
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 
 @Injectable()
 export class PermissionGuard implements CanActivate {

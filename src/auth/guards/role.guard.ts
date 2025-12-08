@@ -3,7 +3,7 @@ import { Injectable, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { isEmpty } from 'lodash';
 
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Role } from 'src/database/schemas/enums/role.enum';
 
 export const RoleSymbol = 'userRole';
 export type RolesType = Role;

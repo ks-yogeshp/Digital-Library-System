@@ -4,7 +4,7 @@ import { Strategy } from 'passport-google-oauth2';
 import { VerifiedCallback } from 'passport-jwt';
 
 import { CONFIG } from 'src/config';
-import { User } from 'src/database/entities/user.entity';
+import { User } from 'src/database/schemas/user.schema';
 import { AuthService } from '../auth.service';
 
 @Injectable()

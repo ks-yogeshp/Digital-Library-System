@@ -1,7 +1,9 @@
-import { Role } from 'src/database/entities/enums/role.enum';
+import { Types } from 'mongoose';
+
+import { Role } from 'src/database/schemas/enums/role.enum';
 
 export interface IActiveUser {
-  sub: number;
+  sub: Types.ObjectId;
 
   email: string;
 
